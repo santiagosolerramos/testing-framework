@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { useAtom, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { ulid } from 'ulid'
 import { v4 as uuidv4 } from 'uuid'
 import {
@@ -28,6 +28,8 @@ import {
   sandboxConversationsAtom,
   selectedSandboxSessionIdAtom,
   sandboxDeleteTargetAtom,
+  deployedVersionAtom,
+  runningVersionAtom,
 } from '@/atoms'
 import { mockInvokeAgent } from '@/services/mockAI'
 import { cn } from '@/lib/utils'
@@ -191,6 +193,8 @@ export function SandboxContent() {
   const [conversations, setConversations] = useAtom(sandboxConversationsAtom)
   const [selectedSessionId, setSelectedSessionId] = useAtom(selectedSandboxSessionIdAtom)
   const [deleteTarget, setDeleteTarget] = useAtom(sandboxDeleteTargetAtom)
+  const deployedVersion = useAtomValue(deployedVersionAtom)
+  const runningVersion = useAtomValue(runningVersionAtom)
 
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -246,17 +250,22 @@ export function SandboxContent() {
 
       try {
         const reply = await mockInvokeAgent(composer)
-        const assistantMsg: Message = { role: 'ASSISTANT', text: reply, timestamp: Date.now() }
-        setConversations((prev) => {
-          const { [sessionId]: current, ...rest } = prev
-          return {
-            ...rest,
-            [sessionId]: {
-              ...current,
-              messages: [...(current?.messages || []), assistantMsg],
-            },
-          }
-        })
+        // Split reply into multiple short bubbles (like the original)
+        const sentences = reply.match(/[^.!?]+[.!?]+/g) || [reply]
+        for (const sentence of sentences.slice(0, 3)) {
+          await new Promise((r) => setTimeout(r, 150))
+          const assistantMsg: Message = { role: 'ASSISTANT', text: sentence.trim(), timestamp: Date.now() }
+          setConversations((prev) => {
+            const { [sessionId]: current, ...rest } = prev
+            return {
+              ...rest,
+              [sessionId]: {
+                ...current,
+                messages: [...(current?.messages || []), assistantMsg],
+              },
+            }
+          })
+        }
       } finally {
         setThinking((prev) => ({ ...prev, [sessionId]: false }))
         composerRef.current?.focus()
@@ -329,13 +338,18 @@ export function SandboxContent() {
     <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200">
-        <span className="font-semibold text-gray-900">Sandbox</span>
+        <span className="font-semibold text-gray-900">Chat</span>
         {selectedSessionId && (
-          <Button variant="outline" size="sm" onClick={handleCopySession}>
-            <CopyIcon className="w-4 h-4 mr-2" />
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-gray-500" onClick={handleCopySession}>
+            <CopyIcon className="w-3.5 h-3.5" />
             Copy Session ID
           </Button>
         )}
+      </div>
+      {/* Version banner */}
+      <div className="flex items-center gap-4 px-6 py-1.5 bg-green-50 border-b border-green-100 text-xs">
+        <span className="text-green-700 font-medium">Running: {runningVersion}</span>
+        <span className="text-green-600">Deployed: {deployedVersion}</span>
       </div>
 
       {/* Messages */}

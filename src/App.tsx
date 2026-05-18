@@ -1,120 +1,181 @@
-import React from 'react'
-import { HashRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { useCallback } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Provider as JotaiProvider } from 'jotai'
-import { MessageSquareIcon, FlaskConicalIcon } from 'lucide-react'
+import { Provider as JotaiProvider, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { FlaskConicalIcon, BookOpenIcon, HammerIcon, ListIcon } from 'lucide-react'
 import { SandboxSidebar, SandboxContent } from '@/scenes/Sandbox'
-import { TestSuitesSidebar, TestSuitesContent, EvaluationPanel } from '@/scenes/TestSuites'
+import { PersonasSidebar } from '@/scenes/Personas/PersonasSidebar'
+import { PersonaRunView } from '@/scenes/Personas/PersonaRunView'
+import { ResultsPanel } from '@/scenes/Personas/ResultsPanel'
+import { PersonaForm } from '@/scenes/Personas/PersonaForm'
+import {
+  sidebarTabAtom,
+  personaFormModeAtom,
+  personasAtom,
+  selectedPersonaIdAtom,
+} from '@/atoms'
+import type { PersonaFormData, SidebarTab } from '@/atoms'
 import { cn } from '@/lib/utils'
+import { ulid } from 'ulid'
 
 const queryClient = new QueryClient()
 
-function AppLayout({
-  sidebar,
-  content,
-  rightPanel,
-}: {
-  sidebar: React.ReactNode
-  content: React.ReactNode
-  rightPanel?: React.ReactNode
-}) {
+// ─── Left nav icons ───────────────────────────────────────────────────────────
+function LeftNav() {
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left sidebar */}
-      <aside className="w-64 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden">
-        <nav className="flex border-b border-gray-200">
-          <NavLink
-            to="/sandbox"
-            className={({ isActive }) =>
-              cn(
-                'flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors border-b-2',
-                isActive
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              )
-            }
+    <div className="w-12 flex-shrink-0 border-r border-gray-200 flex flex-col items-center py-3 gap-4 bg-white">
+      <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
+        <FlaskConicalIcon className="w-4 h-4 text-white" />
+      </div>
+      <div className="flex flex-col items-center gap-3 mt-2">
+        {[
+          { icon: ListIcon, label: 'Executions' },
+          { icon: BookOpenIcon, label: 'Knowledge' },
+          { icon: HammerIcon, label: 'Builder' },
+        ].map(({ icon: Icon, label }) => (
+          <button
+            key={label}
+            type="button"
+            title={label}
+            className="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
           >
-            <MessageSquareIcon className="w-3.5 h-3.5" />
-            Sandbox
-          </NavLink>
-          <NavLink
-            to="/test-suites"
-            className={({ isActive }) =>
-              cn(
-                'flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors border-b-2',
-                isActive
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              )
-            }
-          >
-            <FlaskConicalIcon className="w-3.5 h-3.5" />
-            Test Suites
-          </NavLink>
-        </nav>
-        <div className="flex-1 overflow-hidden pt-2">{sidebar}</div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 flex overflow-hidden">{content}</main>
-
-      {/* Right panel */}
-      {rightPanel && (
-        <aside className="w-72 flex-shrink-0 border-l border-gray-200 overflow-hidden">
-          {rightPanel}
-        </aside>
-      )}
+            <Icon className="w-4 h-4" />
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
 
-function App() {
+// ─── Sidebar panel (tabs + content) ──────────────────────────────────────────
+function SidebarPanel() {
+  const [tab, setTab] = useAtom(sidebarTabAtom)
+  return (
+    <aside className="w-56 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
+      <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200">
+        <p className="text-xs font-semibold text-gray-600">Agents</p>
+      </div>
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 flex-shrink-0">
+        {(['personas', 'chat'] as SidebarTab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={cn(
+              'flex-1 py-2 text-xs font-medium capitalize transition-colors',
+              tab === t
+                ? 'bg-white border-b-2 border-gray-900 text-gray-900'
+                : 'text-gray-500 hover:text-gray-700'
+            )}
+          >
+            {t === 'personas' ? 'Personas' : 'Chat'}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-hidden pt-2">
+        {tab === 'personas' ? <PersonasSidebar /> : <SandboxSidebar />}
+      </div>
+    </aside>
+  )
+}
+
+// ─── Main area ────────────────────────────────────────────────────────────────
+function MainArea() {
+  const tab = useAtomValue(sidebarTabAtom)
+  const [formMode, setFormMode] = useAtom(personaFormModeAtom)
+  const [personas, setPersonas] = useAtom(personasAtom)
+  const setSelectedId = useSetAtom(selectedPersonaIdAtom)
+
+  const handleFormSubmit = useCallback(
+    async (data: PersonaFormData) => {
+      if (formMode === 'create') {
+        const newPersona = {
+          id: ulid(),
+          ...data,
+          createdAt: Date.now(),
+        }
+        setPersonas((prev) => [...prev, newPersona])
+        setSelectedId(newPersona.id)
+      } else if (formMode && formMode !== 'create') {
+        setPersonas((prev) =>
+          prev.map((p) => (p.id === formMode ? { ...p, ...data } : p))
+        )
+      }
+      setFormMode(null)
+    },
+    [formMode, setPersonas, setSelectedId, setFormMode]
+  )
+
+  const handleDelete = useCallback(() => {
+    if (!formMode || formMode === 'create') return
+    setPersonas((prev) => prev.filter((p) => p.id !== formMode))
+    setFormMode(null)
+    setSelectedId(null)
+  }, [formMode, setPersonas, setFormMode, setSelectedId])
+
+  // Show form overlay
+  if (formMode !== null) {
+    const existing = personas.find((p) => p.id === formMode)
+    const initialData: PersonaFormData | undefined = existing
+      ? {
+          personaKey: existing.personaKey,
+          objectives: existing.objectives,
+          evaluations: existing.evaluations,
+          mockData: existing.mockData,
+        }
+      : undefined
+
+    return (
+      <div className="flex-1 flex overflow-hidden">
+        <PersonaForm
+          mode={formMode === 'create' ? 'create' : 'update'}
+          initialData={initialData}
+          onSubmit={handleFormSubmit}
+          onCancel={() => setFormMode(null)}
+          onDelete={formMode !== 'create' ? handleDelete : undefined}
+        />
+      </div>
+    )
+  }
+
+  if (tab === 'chat') {
+    return (
+      <div className="flex-1 flex overflow-hidden">
+        <SandboxContent />
+      </div>
+    )
+  }
+
+  // Personas view: run view + results panel
+  return (
+    <div className="flex-1 flex overflow-hidden">
+      <PersonaRunView />
+      <aside className="w-72 flex-shrink-0 border-l border-gray-200 overflow-hidden">
+        <ResultsPanel />
+      </aside>
+    </div>
+  )
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+function AppShell() {
+  return (
+    <div className="h-screen flex overflow-hidden bg-white">
+      <LeftNav />
+      <SidebarPanel />
+      <main className="flex-1 flex overflow-hidden">
+        <MainArea />
+      </main>
+    </div>
+  )
+}
+
+export default function App() {
   return (
     <JotaiProvider>
       <QueryClientProvider client={queryClient}>
-        <HashRouter>
-          <div className="h-screen flex flex-col overflow-hidden">
-            {/* Top bar */}
-            <header className="flex-shrink-0 h-12 border-b border-gray-200 flex items-center px-4 gap-3">
-              <div className="flex items-center gap-2">
-                <FlaskConicalIcon className="w-5 h-5 text-gray-700" />
-                <span className="font-semibold text-sm text-gray-900">Agent Test Framework</span>
-              </div>
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                mock mode
-              </span>
-            </header>
-
-            <div className="flex-1 overflow-hidden">
-              <Routes>
-                <Route path="/" element={<Navigate to="/sandbox" replace />} />
-                <Route
-                  path="/sandbox"
-                  element={
-                    <AppLayout
-                      sidebar={<SandboxSidebar />}
-                      content={<SandboxContent />}
-                    />
-                  }
-                />
-                <Route
-                  path="/test-suites"
-                  element={
-                    <AppLayout
-                      sidebar={<TestSuitesSidebar />}
-                      content={<TestSuitesContent />}
-                      rightPanel={<EvaluationPanel />}
-                    />
-                  }
-                />
-                <Route path="*" element={<Navigate to="/sandbox" replace />} />
-              </Routes>
-            </div>
-          </div>
-        </HashRouter>
+        <AppShell />
       </QueryClientProvider>
     </JotaiProvider>
   )
 }
-
-export default App
