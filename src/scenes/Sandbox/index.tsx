@@ -76,7 +76,7 @@ function ConversationItem({ id, label, isActive, onSelect, onCopy, onDelete }: C
   return (
     <div
       className={cn(
-        'w-full rounded-md transition-colors group hover:bg-gray-200 hover:text-gray-900',
+        'w-full rounded-md transition-colors duration-500 group hover:bg-gray-200 hover:text-gray-900',
         isActive && 'bg-gray-200 font-medium'
       )}
     >
@@ -150,7 +150,7 @@ export function SandboxSidebar() {
     <div className="pb-1 flex flex-1 min-h-0 flex-col overflow-hidden">
       <div className="px-2 pb-2 flex-shrink-0">
         <Button
-          className="w-full justify-start rounded-md px-3 py-2 transition-colors hover:bg-gray-100 hover:text-gray-900 text-gray-600 gap-2 h-auto"
+          className="w-full justify-start rounded-md px-3 py-2 transition-colors duration-500 hover:bg-gray-100 hover:text-gray-900 text-gray-600 gap-2 h-auto"
           variant="ghost"
           onClick={handleNewSession}
         >

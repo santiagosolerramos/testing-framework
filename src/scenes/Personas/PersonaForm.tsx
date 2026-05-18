@@ -88,7 +88,7 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
 
         {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-4xl px-8 pb-20">
+          <div className="mx-auto w-full max-w-4xl px-4 pb-20">
 
             {/* ════════════════════════════════════════
                 Step 1 — Persona Configuration

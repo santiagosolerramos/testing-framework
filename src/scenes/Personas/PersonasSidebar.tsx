@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   personasAtom,
   sectionsAtom,
@@ -93,7 +94,7 @@ export function PersonasSidebar() {
       {/* Create button */}
       <div className="px-2 pb-2 flex-shrink-0">
         <Button
-          className="w-full justify-start rounded-md px-3 py-2 transition-colors hover:bg-gray-100 hover:text-gray-900 text-gray-600 gap-2 h-auto"
+          className="w-full justify-start rounded-md px-3 py-2 transition-colors duration-500 hover:bg-gray-100 hover:text-gray-900 text-gray-600 gap-2 h-auto"
           variant="ghost"
           onClick={() => setFormMode('create')}
         >
@@ -116,7 +117,8 @@ export function PersonasSidebar() {
       </div>
 
       {/* Scrollable list */}
-      <div className="flex-1 overflow-auto px-2 min-h-0">
+      <ScrollArea className="flex-1 min-h-0">
+      <div className="px-2">
         {/* Sections (folders) */}
         {!search && (
           <div className="mb-2">
@@ -127,7 +129,7 @@ export function PersonasSidebar() {
               <button
                 key={section.id}
                 type="button"
-                className="w-full flex items-center justify-between px-3 py-1.5 rounded-md text-left transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-md text-left transition-colors duration-500 hover:bg-gray-100 hover:text-gray-900"
               >
                 <span className="flex items-center gap-2 text-xs text-gray-600">
                   <FolderIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
@@ -152,19 +154,20 @@ export function PersonasSidebar() {
                 type="button"
                 onClick={() => setSelectedId(persona.id)}
                 className={cn(
-                  'w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left transition-colors group',
+                  'w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left transition-colors duration-500 group min-w-0',
                   isSelected
                     ? 'bg-gray-200 font-medium hover:bg-gray-200 hover:text-gray-900'
                     : 'hover:bg-gray-200 hover:text-gray-900'
                 )}
               >
                 <PersonaStatusIcon status={status} />
-                <span className="text-xs text-gray-800 truncate flex-1">{persona.personaKey}</span>
+                <span className="text-xs text-gray-800 truncate flex-1 min-w-0">{persona.personaKey}</span>
               </button>
             )
           })}
         </div>
       </div>
+      </ScrollArea>
 
       {/* Run Tests button */}
       <div className="flex-shrink-0 border-t border-gray-200 p-2">
