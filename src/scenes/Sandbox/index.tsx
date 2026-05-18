@@ -39,16 +39,19 @@ import type { Message } from '@/types'
 function ChatMessage({ message }: { message: Message }) {
   const isUser = message.role === 'USER'
   return (
-    <div className={cn('flex gap-3 items-start', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div className={cn('flex gap-4 items-start', isUser ? 'flex-row-reverse' : 'flex-row')}>
       <div
         className={cn(
-          'max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+          'text-xs rounded-lg p-2 relative max-w-[70%]',
           isUser
-            ? 'bg-gray-900 text-white rounded-tr-sm'
-            : 'bg-gray-100 text-gray-900 rounded-tl-sm'
+            ? 'bg-green-100 text-gray-800'
+            : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
         )}
       >
         {message.text}
+        {isUser && (
+          <span className="absolute bottom-1 right-2 text-[10px] text-gray-400">✓✓</span>
+        )}
       </div>
     </div>
   )
@@ -64,14 +67,7 @@ type ConversationItemProps = {
   onDelete: (id: string) => void
 }
 
-function ConversationItem({
-  id,
-  label,
-  isActive,
-  onSelect,
-  onCopy,
-  onDelete,
-}: ConversationItemProps) {
+function ConversationItem({ id, label, isActive, onSelect, onCopy, onDelete }: ConversationItemProps) {
   const handleSelect = useCallback(() => onSelect(id), [onSelect, id])
   const handleStop = useCallback((e: React.MouseEvent) => e.stopPropagation(), [])
   const handleCopy = useCallback(() => onCopy(id), [onCopy, id])
@@ -80,7 +76,7 @@ function ConversationItem({
   return (
     <div
       className={cn(
-        'w-full rounded-md transition-colors group hover:bg-gray-200',
+        'w-full rounded-md transition-colors group hover:bg-gray-200 hover:text-gray-900',
         isActive && 'bg-gray-200 font-medium'
       )}
     >
@@ -100,15 +96,18 @@ function ConversationItem({
               className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={handleStop}
             >
-              <MoreVerticalIcon className="w-4 h-4 text-gray-500" />
+              <MoreVerticalIcon className="w-4 h-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48" onClick={handleStop}>
-            <DropdownMenuItem onClick={handleCopy}>
+            <DropdownMenuItem className="cursor-pointer" onClick={handleCopy}>
               <CopyIcon className="mr-2 h-4 w-4" />
               Copy session ID
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleDelete}>
+            <DropdownMenuItem
+              className="cursor-pointer text-red-600 focus:text-red-600"
+              onClick={handleDelete}
+            >
               <TrashIcon className="mr-2 h-4 w-4" />
               Delete
             </DropdownMenuItem>
@@ -141,36 +140,33 @@ export function SandboxSidebar() {
     }
   }, [selectedSessionId, conversations, setSelectedSessionId])
 
-  const entries = useMemo(
-    () => Object.entries(conversations).reverse(),
-    [conversations]
-  )
+  const entries = useMemo(() => Object.entries(conversations).reverse(), [conversations])
 
   const handleCopy = useCallback((id: string) => {
     navigator.clipboard.writeText(id).catch(() => {})
   }, [])
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-2 pb-2">
+    <div className="pb-1 flex flex-1 min-h-0 flex-col overflow-hidden">
+      <div className="px-2 pb-2 flex-shrink-0">
         <Button
-          className="w-full justify-start rounded-md px-3 py-2 text-gray-600 gap-2 h-auto"
+          className="w-full justify-start rounded-md px-3 py-2 transition-colors hover:bg-gray-100 hover:text-gray-900 text-gray-600 gap-2 h-auto"
           variant="ghost"
           onClick={handleNewSession}
         >
-          <SquarePenIcon className="w-4 h-4 flex-shrink-0" />
-          New Conversation
+          <SquarePenIcon className="w-4 h-4 shrink-0" />
+          <span className="text-sm">New Conversation</span>
         </Button>
       </div>
-      <div className="flex flex-col gap-1 overflow-auto p-2 pt-0 h-full">
+      <div className="flex flex-col gap-1 overflow-auto p-2 pt-0 flex-1 min-h-0">
         {entries.length === 0 && (
-          <div className="text-sm text-gray-400 px-3 py-2 h-full flex items-center justify-center">
+          <div className="text-sm text-muted-foreground px-3 py-2 h-full flex items-center justify-center">
             No conversations yet
           </div>
         )}
         {entries.map(([id, conv]) => {
           const last = conv.messages.slice(-1)[0]
-          const label = last?.text?.slice(0, 40) || 'Start chatting…'
+          const label = last?.text?.slice(0, 40) || 'Start chatting'
           return (
             <ConversationItem
               key={id}
@@ -199,7 +195,7 @@ export function SandboxContent() {
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [composer, setComposer] = useState('')
-  const [thinking, setThinking] = useState<Record<string, boolean>>({})
+  const [thinkingBySession, setThinkingBySession] = useState<Record<string, boolean>>({})
   const [isDeleting, setIsDeleting] = useState(false)
 
   const messages = useMemo<Message[]>(() => {
@@ -233,41 +229,33 @@ export function SandboxContent() {
   const sendMessage = useCallback(
     async (sessionId: string) => {
       if (!composer.trim()) return
-
       const userMsg: Message = { role: 'USER', text: composer, timestamp: Date.now() }
       setConversations((prev) => {
         const { [sessionId]: current, ...rest } = prev
         return {
           ...rest,
-          [sessionId]: {
-            ...current,
-            messages: [...(current?.messages || []), userMsg],
-          },
+          [sessionId]: { ...current, messages: [...(current?.messages || []), userMsg] },
         }
       })
       setComposer('')
-      setThinking((prev) => ({ ...prev, [sessionId]: true }))
-
+      setThinkingBySession((prev) => ({ ...prev, [sessionId]: true }))
       try {
         const reply = await mockInvokeAgent(composer)
-        // Split reply into multiple short bubbles (like the original)
+        // Split into multiple short bubbles
         const sentences = reply.match(/[^.!?]+[.!?]+/g) || [reply]
         for (const sentence of sentences.slice(0, 3)) {
-          await new Promise((r) => setTimeout(r, 150))
+          await new Promise((r) => setTimeout(r, 180))
           const assistantMsg: Message = { role: 'ASSISTANT', text: sentence.trim(), timestamp: Date.now() }
           setConversations((prev) => {
             const { [sessionId]: current, ...rest } = prev
             return {
               ...rest,
-              [sessionId]: {
-                ...current,
-                messages: [...(current?.messages || []), assistantMsg],
-              },
+              [sessionId]: { ...current, messages: [...(current?.messages || []), assistantMsg] },
             }
           })
         }
       } finally {
-        setThinking((prev) => ({ ...prev, [sessionId]: false }))
+        setThinkingBySession((prev) => ({ ...prev, [sessionId]: false }))
         composerRef.current?.focus()
       }
     },
@@ -320,53 +308,48 @@ export function SandboxContent() {
     } finally {
       setIsDeleting(false)
     }
-  }, [
-    deleteTarget,
-    conversations,
-    selectedSessionId,
-    setConversations,
-    setSelectedSessionId,
-    setDeleteTarget,
-    handleNewSession,
-  ])
+  }, [deleteTarget, conversations, selectedSessionId, setConversations, setSelectedSessionId, setDeleteTarget, handleNewSession])
 
   const handleCopySession = useCallback(() => {
     if (selectedSessionId) navigator.clipboard.writeText(selectedSessionId).catch(() => {})
   }, [selectedSessionId])
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200">
-        <span className="font-semibold text-gray-900">Chat</span>
+    <div className="flex flex-col flex-1 min-h-0 w-full h-full overflow-x-clip bg-white">
+      {/* ── Header ── */}
+      <div className="flex items-center border-b border-gray-200 px-6 bg-white sticky top-0 z-[5] h-16 flex-shrink-0">
+        <span className="font-semibold text-base text-foreground flex-1">Chat</span>
         {selectedSessionId && (
-          <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-gray-500" onClick={handleCopySession}>
-            <CopyIcon className="w-3.5 h-3.5" />
+          <Button variant="ghost" size="sm" className="gap-1.5 text-gray-500" onClick={handleCopySession}>
+            <CopyIcon className="w-4 h-4" />
             Copy Session ID
           </Button>
         )}
       </div>
-      {/* Version banner */}
-      <div className="flex items-center gap-4 px-6 py-1.5 bg-green-50 border-b border-green-100 text-xs">
-        <span className="text-green-700 font-medium">Running: {runningVersion}</span>
-        <span className="text-green-600">Deployed: {deployedVersion}</span>
+
+      {/* ── Version banner (green = deployed) ── */}
+      <div className="flex items-center gap-4 px-4 py-2 bg-green-50 border-b border-green-200 flex-shrink-0">
+        <span className="text-sm text-green-800 font-medium">Running: {runningVersion}</span>
+        <span className="text-sm text-green-600">Deployed: {deployedVersion}</span>
       </div>
 
-      {/* Messages */}
+      {/* ── Messages — opacity-0 when empty ── */}
       <div
         className={cn(
-          'flex-1 overflow-auto px-6 pt-6 pb-4 transition-opacity duration-300',
+          'flex-1 overflow-auto px-24 pt-16 pb-4 transition-opacity duration-500',
           isEmpty ? 'opacity-0 pointer-events-none' : 'opacity-100'
         )}
       >
-        <div className="max-w-2xl mx-auto flex flex-col gap-4">
-          {messages.map((msg, i) => (
-            <ChatMessage key={i} message={msg} />
+        <div className="flex flex-col gap-4">
+          {messages.map((message, i) => (
+            <ChatMessage key={i} message={message} />
           ))}
-          {thinking[selectedSessionId || ''] && (
-            <div className="flex gap-3 items-start">
-              <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-2.5">
-                <span className="inline-block w-4 h-4 rounded-full bg-gray-400 animate-pulse" />
+          {thinkingBySession[selectedSessionId || ''] && (
+            <div className="flex gap-4 items-start">
+              <div className="text-xs text-gray-900 rounded-lg p-2 relative">
+                <span className="inline-flex items-center justify-center w-4 h-4">
+                  <span className="inline-block w-4 h-4 rounded-full bg-gray-500 animate-pulse" />
+                </span>
               </div>
             </div>
           )}
@@ -374,34 +357,43 @@ export function SandboxContent() {
         </div>
       </div>
 
-      {/* Composer */}
+      {/* ── Input: absolute center when empty, sticky bottom when has messages ── */}
       <div
         className={cn(
-          'w-full bg-white/95 backdrop-blur transition-all duration-500 ease-out',
+          'w-full bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60 transition-all duration-500 ease-out',
           isEmpty
-            ? 'absolute inset-0 flex items-center justify-center'
+            ? 'absolute inset-0 flex items-center justify-center border-t-0'
             : 'sticky bottom-0 border-t border-gray-200'
         )}
+        style={{
+          borderTopWidth: isEmpty ? '0px' : '1px',
+          borderTopColor: isEmpty ? 'transparent' : undefined,
+        }}
       >
-        <div className={cn('w-full px-6 py-4', isEmpty && 'max-w-2xl')}>
-          {isEmpty && (
-            <p className="text-3xl font-light text-gray-800 text-center mb-6">
-              Ask me anything
-            </p>
-          )}
+        <div className={cn('w-full px-24 py-4 transition-all duration-500', isEmpty ? 'max-w-3xl' : '')}>
+          {/* Title fades in when empty */}
+          <div
+            className={cn(
+              'transition-all duration-500 overflow-hidden',
+              isEmpty ? 'mb-6 max-h-20 opacity-100' : 'mb-0 max-h-0 opacity-0'
+            )}
+          >
+            <p className="text-3xl font-normal text-foreground text-center">Ask me anything</p>
+          </div>
           <div className="relative">
             <textarea
+              onKeyDown={handleKeyDown}
+              placeholder="Ask anything"
               ref={composerRef}
-              className="w-full border border-gray-200 rounded-xl p-4 pr-12 shadow-sm focus:shadow-md focus:outline-none focus:border-gray-300 transition-shadow text-sm"
-              placeholder="Ask anything…"
+              className="w-full border border-gray-200 rounded-xl p-4 pr-12 shadow-sm focus:shadow-md focus:outline-none transition-shadow text-sm"
               value={composer}
               onChange={handleComposerChange}
-              onKeyDown={handleKeyDown}
               rows={2}
               style={{ resize: 'none', minHeight: '2.75rem', maxHeight: '18rem' }}
             />
             {composer.length > 0 && (
               <Button
+                disabled={composer.length === 0}
                 onClick={handleSend}
                 className="absolute right-2 bottom-3 h-8 w-8 p-0"
               >
@@ -412,7 +404,7 @@ export function SandboxContent() {
         </div>
       </div>
 
-      {/* Delete dialog */}
+      {/* ── Delete dialog ── */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>

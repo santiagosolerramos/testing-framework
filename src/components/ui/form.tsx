@@ -50,7 +50,7 @@ const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
     const id = React.useId()
     return (
       <FormItemContext.Provider value={{ id }}>
-        <div ref={ref} className={cn('space-y-1.5', className)} {...props} />
+        <div ref={ref} className={cn('grid gap-2', className)} {...props} />
       </FormItemContext.Provider>
     )
   }
@@ -61,8 +61,16 @@ const FormLabel = React.forwardRef<
   React.ElementRef<typeof Label>,
   React.ComponentPropsWithoutRef<typeof Label>
 >(({ className, ...props }, ref) => {
-  const { formItemId } = useFormField()
-  return <Label ref={ref} className={className} htmlFor={formItemId} {...props} />
+  const { error, formItemId } = useFormField()
+  return (
+    <Label
+      ref={ref}
+      className={cn(error && 'text-destructive', className)}
+      data-error={!!error}
+      htmlFor={formItemId}
+      {...props}
+    />
+  )
 })
 FormLabel.displayName = 'FormLabel'
 

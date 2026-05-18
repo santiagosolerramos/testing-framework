@@ -3,12 +3,14 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   CheckCircle2Icon,
   FolderIcon,
+  Loader2Icon,
   PlayIcon,
-  PlusIcon,
   SearchIcon,
+  SquarePenIcon,
   XCircleIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   personasAtom,
   sectionsAtom,
@@ -19,7 +21,6 @@ import {
 import type { TestRunStatus } from '@/types'
 import { cn } from '@/lib/utils'
 import { mockInvokeAgent } from '@/services/mockAI'
-import { ulid } from 'ulid'
 
 function PersonaStatusIcon({ status }: { status: TestRunStatus }) {
   if (status === 'TEST_RUN_STATUS_PASSED') {
@@ -29,9 +30,13 @@ function PersonaStatusIcon({ status }: { status: TestRunStatus }) {
     return <XCircleIcon className="w-4 h-4 text-red-400 flex-shrink-0" />
   }
   if (status === 'TEST_RUN_STATUS_RUNNING') {
-    return <span className="w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin flex-shrink-0 inline-block" />
+    return (
+      <span className="w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin flex-shrink-0 inline-block" />
+    )
   }
-  return <span className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0 inline-block" />
+  return (
+    <span className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0 inline-block" />
+  )
 }
 
 export function PersonasSidebar() {
@@ -42,15 +47,14 @@ export function PersonasSidebar() {
   const setFormMode = useSetAtom(personaFormModeAtom)
   const setTestRuns = useSetAtom(testRunsAtom)
   const [search, setSearch] = useState('')
-const filtered = personas.filter((p) =>
+  const [runningAll, setRunningAll] = useState(false)
+
+  const filtered = personas.filter((p) =>
     p.personaKey.toLowerCase().includes(search.toLowerCase())
   )
 
-  const toggleSection = useCallback((_id: string) => {
-    // expand/collapse sections — UI feature to implement
-  }, [])
-
   const runAllPersonas = useCallback(async () => {
+    setRunningAll(true)
     for (const persona of personas) {
       setTestRuns((prev) => ({
         ...prev,
@@ -82,56 +86,29 @@ const filtered = personas.filter((p) =>
         }))
       }
     }
+    setRunningAll(false)
   }, [personas, setTestRuns])
 
-  const runOnePersona = useCallback(
-    async (personaId: string, e: React.MouseEvent) => {
-      e.stopPropagation()
-      const persona = personas.find((p) => p.id === personaId)
-      if (!persona) return
-      setTestRuns((prev) => ({ ...prev, [personaId]: { status: 'TEST_RUN_STATUS_RUNNING' } }))
-      try {
-        await mockInvokeAgent(persona.objectives[0]?.instructions || 'test')
-        const passed = Math.random() > 0.2
-        const evalResults = persona.evaluations.map((e, i) => ({
-          name: `Evaluation ${i + 1}`,
-          passed,
-          score: passed ? 1 : 0,
-          prompt: e.prompt,
-          threshold: e.threshold,
-        }))
-        setTestRuns((prev) => ({
-          ...prev,
-          [personaId]: {
-            status: passed ? 'TEST_RUN_STATUS_PASSED' : 'TEST_RUN_STATUS_FAILED',
-            evaluationResults: evalResults,
-          },
-        }))
-      } catch {
-        setTestRuns((prev) => ({ ...prev, [personaId]: { status: 'TEST_RUN_STATUS_FAILED' } }))
-      }
-    },
-    [personas, setTestRuns]
-  )
-
-  void ulid // suppress unused warning
-
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Create + Search */}
-      <div className="px-3 pb-2 flex flex-col gap-2">
+    <div className="pb-1 flex flex-1 min-h-0 flex-col overflow-hidden">
+      {/* Create button */}
+      <div className="px-2 pb-2 flex-shrink-0">
         <Button
+          className="w-full justify-start rounded-md px-3 py-2 transition-colors hover:bg-gray-100 hover:text-gray-900 text-gray-600 gap-2 h-auto"
           variant="ghost"
-          className="w-full justify-start gap-2 h-8 text-gray-600 text-xs px-2"
           onClick={() => setFormMode('create')}
         >
-          <PlusIcon className="w-3.5 h-3.5" />
-          Create New Persona
+          <SquarePenIcon className="w-4 h-4 shrink-0" />
+          <span className="text-sm">Create New Persona</span>
         </Button>
+      </div>
+
+      {/* Search */}
+      <div className="px-3 pb-3 flex-shrink-0">
         <div className="relative">
-          <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input
-            className="w-full h-7 pl-7 pr-3 text-xs rounded border border-gray-200 bg-white focus:outline-none focus:border-gray-300"
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            className="pl-9 h-9 text-sm"
             placeholder="Search personas..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -139,25 +116,27 @@ const filtered = personas.filter((p) =>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-2">
+      {/* Scrollable list */}
+      <div className="flex-1 overflow-auto px-2 min-h-0">
         {/* Sections (folders) */}
         {!search && (
           <div className="mb-2">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase px-2 py-1 tracking-wide">
+            <h3 className="px-3 text-xs font-medium text-gray-500 tracking-wide uppercase mb-1">
               Custom
-            </p>
+            </h3>
             {sections.map((section) => (
               <button
                 key={section.id}
                 type="button"
-                onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-md text-left transition-colors hover:bg-gray-100 hover:text-gray-900"
               >
-                <span className="flex items-center gap-2 text-xs text-gray-700">
-                  <FolderIcon className="w-3.5 h-3.5 text-gray-400" />
-                  {section.name}
+                <span className="flex items-center gap-2 text-xs text-gray-600">
+                  <FolderIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <span className="truncate">{section.name}</span>
                 </span>
-                <span className="text-[10px] text-gray-400">{section.personaIds.length}</span>
+                <span className="px-1.5 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 rounded shrink-0 ml-1">
+                  {section.personaIds.length}
+                </span>
               </button>
             ))}
           </div>
@@ -174,40 +153,34 @@ const filtered = personas.filter((p) =>
                 type="button"
                 onClick={() => setSelectedId(persona.id)}
                 className={cn(
-                  'w-full flex items-center justify-between px-2 py-1.5 rounded text-left group transition-colors',
-                  isSelected ? 'bg-gray-200' : 'hover:bg-gray-100'
+                  'w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left transition-colors group',
+                  isSelected
+                    ? 'bg-gray-200 font-medium hover:bg-gray-200 hover:text-gray-900'
+                    : 'hover:bg-gray-200 hover:text-gray-900'
                 )}
               >
-                <span className="flex items-center gap-2 flex-1 min-w-0">
-                  <PersonaStatusIcon status={status} />
-                  <span className="text-xs text-gray-800 truncate">{persona.personaKey}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => runOnePersona(persona.id, e)}
-                  className={cn(
-                    'opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-200',
-                    status === 'TEST_RUN_STATUS_RUNNING' && 'pointer-events-none'
-                  )}
-                  title="Run"
-                >
-                  <PlayIcon className="w-3 h-3 text-gray-500" />
-                </button>
+                <PersonaStatusIcon status={status} />
+                <span className="text-xs text-gray-800 truncate flex-1">{persona.personaKey}</span>
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Test all personas */}
+      {/* Run Tests button */}
       <div className="flex-shrink-0 border-t border-gray-200 p-2">
         <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 h-8 text-gray-600 text-xs"
+          variant="outline"
+          className="flex-1 w-full gap-2 text-xs h-8"
           onClick={runAllPersonas}
+          disabled={runningAll}
         >
-          <PlayIcon className="w-3.5 h-3.5" />
-          Test all personas
+          {runningAll ? (
+            <Loader2Icon className="w-4 h-4 animate-spin" />
+          ) : (
+            <PlayIcon className="w-4 h-4" />
+          )}
+          {runningAll ? 'Running...' : 'Test all personas'}
         </Button>
       </div>
     </div>

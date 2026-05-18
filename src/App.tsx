@@ -7,6 +7,7 @@ import { PersonasSidebar } from '@/scenes/Personas/PersonasSidebar'
 import { PersonaRunView } from '@/scenes/Personas/PersonaRunView'
 import { ResultsPanel } from '@/scenes/Personas/ResultsPanel'
 import { PersonaForm } from '@/scenes/Personas/PersonaForm'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import {
   sidebarTabAtom,
   personaFormModeAtom,
@@ -19,7 +20,7 @@ import { ulid } from 'ulid'
 
 const queryClient = new QueryClient()
 
-// ─── Left nav icons ───────────────────────────────────────────────────────────
+// ─── Left icon nav ────────────────────────────────────────────────────────────
 function LeftNav() {
   return (
     <div className="w-12 flex-shrink-0 border-r border-gray-200 flex flex-col items-center py-3 gap-4 bg-white">
@@ -46,11 +47,11 @@ function LeftNav() {
   )
 }
 
-// ─── Sidebar panel (tabs + content) ──────────────────────────────────────────
+// ─── Sidebar panel ────────────────────────────────────────────────────────────
 function SidebarPanel() {
   const [tab, setTab] = useAtom(sidebarTabAtom)
   return (
-    <aside className="w-56 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
+    <div className="w-56 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
       <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200">
         <p className="text-xs font-semibold text-gray-600">Agents</p>
       </div>
@@ -72,10 +73,10 @@ function SidebarPanel() {
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-hidden pt-2">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0 pt-2">
         {tab === 'personas' ? <PersonasSidebar /> : <SandboxSidebar />}
       </div>
-    </aside>
+    </div>
   )
 }
 
@@ -89,17 +90,11 @@ function MainArea() {
   const handleFormSubmit = useCallback(
     async (data: PersonaFormData) => {
       if (formMode === 'create') {
-        const newPersona = {
-          id: ulid(),
-          ...data,
-          createdAt: Date.now(),
-        }
+        const newPersona = { id: ulid(), ...data, createdAt: Date.now() }
         setPersonas((prev) => [...prev, newPersona])
         setSelectedId(newPersona.id)
       } else if (formMode && formMode !== 'create') {
-        setPersonas((prev) =>
-          prev.map((p) => (p.id === formMode ? { ...p, ...data } : p))
-        )
+        setPersonas((prev) => prev.map((p) => (p.id === formMode ? { ...p, ...data } : p)))
       }
       setFormMode(null)
     },
@@ -113,7 +108,7 @@ function MainArea() {
     setSelectedId(null)
   }, [formMode, setPersonas, setFormMode, setSelectedId])
 
-  // Show form overlay
+  // Form overlay (full width, no panels)
   if (formMode !== null) {
     const existing = personas.find((p) => p.id === formMode)
     const initialData: PersonaFormData | undefined = existing
@@ -126,7 +121,7 @@ function MainArea() {
       : undefined
 
     return (
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         <PersonaForm
           mode={formMode === 'create' ? 'create' : 'update'}
           initialData={initialData}
@@ -140,20 +135,23 @@ function MainArea() {
 
   if (tab === 'chat') {
     return (
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
         <SandboxContent />
       </div>
     )
   }
 
-  // Personas view: run view + results panel
+  // Personas: resizable 3-column layout (main + results panel)
   return (
-    <div className="flex-1 flex overflow-hidden">
-      <PersonaRunView />
-      <aside className="w-72 flex-shrink-0 border-l border-gray-200 overflow-hidden">
+    <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0">
+      <ResizablePanel defaultSize={74} minSize={58}>
+        <PersonaRunView />
+      </ResizablePanel>
+      <ResizableHandle withHandle className="w-1 bg-border hover:bg-primary/20 transition-colors" />
+      <ResizablePanel defaultSize={26} minSize={22} maxSize={34}>
         <ResultsPanel />
-      </aside>
-    </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   )
 }
 
@@ -163,7 +161,7 @@ function AppShell() {
     <div className="h-screen flex overflow-hidden bg-white">
       <LeftNav />
       <SidebarPanel />
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex flex-1 min-h-0 overflow-hidden">
         <MainArea />
       </main>
     </div>
