@@ -92,9 +92,9 @@ export function PersonasSidebar() {
   return (
     <div className="pb-1 flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Create button */}
-      <div className="px-2 pb-2 flex-shrink-0">
+      <div className="px-3 pt-2 pb-1 flex-shrink-0">
         <Button
-          className="w-full justify-start rounded-md px-3 py-2 transition-colors duration-500 hover:bg-gray-100 hover:text-gray-900 text-gray-600 gap-2 h-auto"
+          className="w-full justify-start rounded-md px-2 py-2.5 transition-colors duration-500 hover:bg-gray-100 text-gray-600 gap-2.5 h-auto"
           variant="ghost"
           onClick={() => setFormMode('create')}
         >
@@ -104,7 +104,7 @@ export function PersonasSidebar() {
       </div>
 
       {/* Search */}
-      <div className="px-3 pb-3 flex-shrink-0">
+      <div className="px-3 pb-2 flex-shrink-0">
         <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
@@ -118,24 +118,24 @@ export function PersonasSidebar() {
 
       {/* Scrollable list */}
       <ScrollArea className="flex-1 min-h-0">
-      <div className="px-2">
+      <div className="px-3 pt-2 pb-4">
         {/* Sections (folders) */}
         {!search && (
-          <div className="mb-2">
-            <h3 className="px-3 text-xs font-medium text-gray-500 tracking-wide uppercase mb-1">
+          <div className="mb-1">
+            <h3 className="px-2 text-[11px] font-semibold text-gray-400 tracking-wider uppercase mb-1 mt-3">
               Custom
             </h3>
             {sections.map((section) => (
               <button
                 key={section.id}
                 type="button"
-                className="w-full flex items-center justify-between px-3 py-1.5 rounded-md text-left transition-colors duration-500 hover:bg-gray-100 hover:text-gray-900"
+                className="w-full flex items-center justify-between px-2 py-2 rounded-md text-left transition-colors duration-500 hover:bg-gray-100"
               >
-                <span className="flex items-center gap-2 text-xs text-gray-600">
-                  <FolderIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                <span className="flex items-center gap-2.5 text-sm text-gray-700 min-w-0">
+                  <FolderIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <span className="truncate">{section.name}</span>
                 </span>
-                <span className="px-1.5 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 rounded shrink-0 ml-1">
+                <span className="px-1.5 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 rounded shrink-0 ml-2">
                   {section.personaIds.length}
                 </span>
               </button>
@@ -144,7 +144,7 @@ export function PersonasSidebar() {
         )}
 
         {/* Individual personas */}
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col mt-1">
           {filtered.map((persona) => {
             const status = testRuns[persona.id]?.status || 'TEST_RUN_STATUS_UNSPECIFIED'
             const isSelected = selectedId === persona.id
@@ -154,14 +154,14 @@ export function PersonasSidebar() {
                 type="button"
                 onClick={() => setSelectedId(persona.id)}
                 className={cn(
-                  'w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left transition-colors duration-500 group min-w-0',
+                  'w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-left transition-colors duration-500 group min-w-0',
                   isSelected
-                    ? 'bg-gray-200 font-medium hover:bg-gray-200 hover:text-gray-900'
-                    : 'hover:bg-gray-200 hover:text-gray-900'
+                    ? 'bg-gray-100 font-medium'
+                    : 'hover:bg-gray-100'
                 )}
               >
                 <PersonaStatusIcon status={status} />
-                <span className="text-xs text-gray-800 truncate flex-1 min-w-0">{persona.personaKey}</span>
+                <span className="text-sm text-gray-700 truncate flex-1 min-w-0">{persona.personaKey}</span>
               </button>
             )
           })}

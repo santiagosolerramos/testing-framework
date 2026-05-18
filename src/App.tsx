@@ -7,7 +7,6 @@ import { PersonasSidebar } from '@/scenes/Personas/PersonasSidebar'
 import { PersonaRunView } from '@/scenes/Personas/PersonaRunView'
 import { ResultsPanel } from '@/scenes/Personas/ResultsPanel'
 import { PersonaForm } from '@/scenes/Personas/PersonaForm'
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import {
   sidebarTabAtom,
   personaFormModeAtom,
@@ -51,29 +50,29 @@ function LeftNav() {
 function SidebarPanel() {
   const [tab, setTab] = useAtom(sidebarTabAtom)
   return (
-    <div className="w-56 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
-      <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200">
-        <p className="text-xs font-semibold text-gray-600">Agents</p>
+    <div className="w-64 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+        <p className="text-sm font-semibold text-gray-900">Agents</p>
       </div>
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 flex-shrink-0">
+      {/* Tabs — pill style */}
+      <div className="flex gap-1 px-3 py-2 border-b border-gray-200 flex-shrink-0">
         {(['personas', 'chat'] as SidebarTab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={cn(
-              'flex-1 py-2 text-xs font-medium capitalize transition-colors',
+              'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors duration-500',
               tab === t
-                ? 'bg-white border-b-2 border-gray-900 text-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
             )}
           >
             {t === 'personas' ? 'Personas' : 'Chat'}
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-hidden flex flex-col min-h-0 pt-2">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0 pt-1">
         {tab === 'personas' ? <PersonasSidebar /> : <SandboxSidebar />}
       </div>
     </div>
@@ -141,17 +140,16 @@ function MainArea() {
     )
   }
 
-  // Personas: resizable 3-column layout (main + results panel)
+  // Personas: fixed results panel on the right
   return (
-    <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0">
-      <ResizablePanel defaultSize={74} minSize={58}>
+    <div className="flex h-full min-h-0 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <PersonaRunView />
-      </ResizablePanel>
-      <ResizableHandle withHandle className="w-1 bg-border hover:bg-primary/20 transition-colors" />
-      <ResizablePanel defaultSize={26} minSize={22} maxSize={34}>
+      </div>
+      <div className="w-[30%] min-w-[280px] max-w-[420px] flex-shrink-0 border-l border-gray-200 overflow-hidden">
         <ResultsPanel />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      </div>
+    </div>
   )
 }
 

@@ -122,8 +122,20 @@ export function PersonaRunView() {
       {/* Conversation */}
       <div className="flex-1 overflow-auto px-16 py-8">
         {entries.length === 0 && !running && (
-          <div className="flex items-center justify-center h-full text-sm text-gray-400">
-            Click &ldquo;Test&rdquo; to run this persona
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+                <rect x="3" y="11" width="18" height="10" rx="2"/>
+                <path d="M12 11V7"/>
+                <path d="M8 7h8"/>
+                <circle cx="9" cy="15" r="1" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="15" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700">No test results yet</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-xs">test your persona to see a simulated conversation and get performance feedback.</p>
+            </div>
           </div>
         )}
         <div className="flex flex-col gap-3 max-w-2xl mx-auto">
