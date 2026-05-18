@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { CheckCircle2Icon, ChevronDownIcon } from 'lucide-react'
+import { CheckCircle2Icon, ChevronDownIcon, XCircleIcon } from 'lucide-react'
 import { personasAtom, selectedPersonaIdAtom, testRunsAtom } from '@/atoms'
 
 export function ResultsPanel() {
@@ -27,21 +27,19 @@ export function ResultsPanel() {
       </div>
 
       <div className="flex-1 overflow-auto px-5 py-4 flex flex-col gap-5">
-        {/* Persona info */}
+        {/* Persona info row */}
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-gray-500">Persona Information</span>
           <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-700">{persona.personaKey}</span>
-            <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-xs text-gray-700 truncate max-w-[120px]">{persona.personaKey}</span>
+            <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
           </div>
         </div>
 
-        {/* No run yet */}
         {!run && (
           <p className="text-xs text-gray-400">Run this persona to see results.</p>
         )}
 
-        {/* Passed count */}
         {run && (
           <>
             {passedCount > 0 && (
@@ -52,14 +50,15 @@ export function ResultsPanel() {
               </div>
             )}
 
-            {/* Evaluation results */}
             {run.evaluationResults?.map((evalResult, i) => (
               <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2Icon
-                      className={evalResult.passed ? 'w-4 h-4 text-green-500' : 'w-4 h-4 text-red-400'}
-                    />
+                    {evalResult.passed ? (
+                      <CheckCircle2Icon className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircleIcon className="w-4 h-4 text-red-400" />
+                    )}
                     <span className="text-sm font-medium text-gray-800">{evalResult.name}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -67,7 +66,6 @@ export function ResultsPanel() {
                     <ChevronDownIcon className="w-3.5 h-3.5" />
                   </div>
                 </div>
-
                 <div className="px-4 py-3 flex flex-col gap-3">
                   <div>
                     <p className="text-xs font-semibold text-gray-700 mb-1">Prompt</p>
@@ -75,7 +73,7 @@ export function ResultsPanel() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-700 mb-1">Threshold</p>
-                    <p className="text-xs text-gray-500">{evalResult.threshold} (Minimum)</p>
+                    <p className="text-xs text-gray-500">1 (Minimum)</p>
                   </div>
                 </div>
               </div>

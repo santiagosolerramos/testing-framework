@@ -4,19 +4,6 @@ export interface Message {
   role: MessageRole
   text: string
   timestamp: number
-  // For agent messages that come as multiple bubbles
-  bubbles?: string[]
-}
-
-export interface CallbackEvent {
-  type: 'callback_timeout'
-  label: string // e.g. "activity_check"
-  seconds: number
-}
-
-export interface ConversationEntry {
-  message?: Message
-  callbackEvent?: CallbackEvent
 }
 
 export interface Conversation {
@@ -36,52 +23,52 @@ export interface EvaluationResult {
   passed: boolean
   score?: number
   prompt: string
-  threshold: number
 }
 
 export interface TestSuiteRun {
   status: TestRunStatus
   evaluationResults?: EvaluationResult[]
-  startedAt?: number
-  finishedAt?: number
 }
 
-// Shape: { [personaId]: TestSuiteRun }
 export type TestRunsState = Record<string, TestSuiteRun>
 
-// ─── Persona (matches PersonaFormData) ───────────────────────────────────────
+// ─── Persona ──────────────────────────────────────────────────────────────────
 export interface PersonaObjective {
   instructions: string
   goal: string
 }
 
-export interface PersonaEvaluation {
+/** Single evaluation criterion (a prompt) */
+export interface EvaluationCriterion {
   id: string
-  maxTurns: number
   prompt: string
-  threshold: number
+}
+
+/** Evaluation config: one maxTurns + N criteria */
+export interface PersonaEvaluation {
+  maxTurns: number
+  criteria: EvaluationCriterion[]
 }
 
 export interface Persona {
   id: string
-  personaKey: string // display name
+  personaKey: string
   objectives: PersonaObjective[]
-  evaluations: PersonaEvaluation[]
-  mockData?: string // JSON string
+  evaluation: PersonaEvaluation
+  mockData?: string
   createdAt: number
 }
 
-// ─── Section (folder grouping personas) ──────────────────────────────────────
 export interface PersonaSection {
   id: string
   name: string
   personaIds: string[]
 }
 
-// ─── PersonaFormData (what react-hook-form uses) ─────────────────────────────
+// ─── Form data ────────────────────────────────────────────────────────────────
 export interface PersonaFormData {
   personaKey: string
   objectives: PersonaObjective[]
-  evaluations: PersonaEvaluation[]
+  evaluation: PersonaEvaluation
   mockData?: string
 }

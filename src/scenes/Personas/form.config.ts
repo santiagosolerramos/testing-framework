@@ -1,11 +1,9 @@
 import { z } from 'zod'
 import type { PersonaFormData } from '@/types'
 
-export const evaluationSchema = z.object({
+const criterionSchema = z.object({
   id: z.string(),
-  maxTurns: z.number().min(1, 'Must be at least 1').max(50),
   prompt: z.string().min(1, 'Prompt is required'),
-  threshold: z.number().min(0).max(1),
 })
 
 export const personaFormSchema = z.object({
@@ -18,14 +16,17 @@ export const personaFormSchema = z.object({
       })
     )
     .min(1),
-  evaluations: z.array(evaluationSchema),
+  evaluation: z.object({
+    maxTurns: z.number().min(1, 'Must be at least 1').max(100),
+    criteria: z.array(criterionSchema),
+  }),
   mockData: z.string().optional(),
 })
 
 export const INITIAL_PERSONA_DATA: PersonaFormData = {
   personaKey: '',
   objectives: [{ instructions: '', goal: '' }],
-  evaluations: [],
+  evaluation: { maxTurns: 6, criteria: [] },
   mockData: undefined,
 }
 
@@ -45,6 +46,6 @@ export function extractFormErrors(
       }
     }
   }
-  traverse(errors as Record<string, unknown>)
+  traverse(errors)
   return result
 }

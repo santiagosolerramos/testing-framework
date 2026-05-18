@@ -16,47 +16,88 @@ const SEED_PERSONAS: Persona[] = [
     objectives: [
       {
         instructions:
-          "You are a customer of the store:\nName: Evino\nDescription: Evino - Clube de vinhos e loja online com seleção exclusiva de vinhos nacionais e importados.\n\nGreet the assistant and ask it to add cabernet sauvignon wine to your cart.",
+          "You are a customer of the store:\nName: Evino\nDescription: Evino - Clube de vinhos e loja online.\n\nGreet the assistant and ask it to add cabernet sauvignon wine to your cart.",
         goal: 'The assistant proactively adds a product to the cart.',
       },
     ],
-    evaluations: [
-      {
-        id: 'eval-1',
-        maxTurns: 6,
-        prompt:
-          'Success criteria are either the assistant showing a single product and adding it to the cart in a single turn OR the assistant showing multiple products, the user selecting one, and the assistant adding it to the cart. Output 1 if the criteria are met, otherwise 0.',
-        threshold: 1,
-      },
-    ],
+    evaluation: {
+      maxTurns: 6,
+      criteria: [
+        {
+          id: 'c-1',
+          prompt:
+            'Output 1 if the assistant shows a product and adds it to the cart, otherwise 0.',
+        },
+      ],
+    },
     createdAt: Date.now() - 86400000,
   },
   {
     id: 'persona-2',
     personaKey: 'Searching for a search term mapping',
-    objectives: [{ instructions: 'Search for "red wine" and verify search results appear.', goal: 'Search results are shown.' }],
-    evaluations: [{ id: 'eval-2', maxTurns: 4, prompt: 'Output 1 if search results are displayed, otherwise 0.', threshold: 1 }],
+    objectives: [
+      {
+        instructions: 'Search for "red wine" and verify search results appear.',
+        goal: 'Search results are shown.',
+      },
+    ],
+    evaluation: {
+      maxTurns: 4,
+      criteria: [
+        { id: 'c-2', prompt: 'Output 1 if search results are displayed, otherwise 0.' },
+      ],
+    },
     createdAt: Date.now() - 72000000,
   },
   {
     id: 'persona-3',
     personaKey: 'User adding multiple different products to cart',
-    objectives: [{ instructions: 'Add 3 different products to the cart.', goal: 'All 3 products are in the cart.' }],
-    evaluations: [{ id: 'eval-3', maxTurns: 8, prompt: 'Output 1 if 3 different products are in cart.', threshold: 1 }],
+    objectives: [
+      {
+        instructions: 'Add 3 different products to the cart.',
+        goal: 'All 3 products are in the cart.',
+      },
+    ],
+    evaluation: {
+      maxTurns: 8,
+      criteria: [
+        { id: 'c-3', prompt: 'Output 1 if 3 different products are in cart, otherwise 0.' },
+      ],
+    },
     createdAt: Date.now() - 60000000,
   },
   {
     id: 'persona-4',
     personaKey: 'User adding product then changing quantity',
-    objectives: [{ instructions: 'Add a product then change its quantity to 3.', goal: 'Quantity is updated to 3.' }],
-    evaluations: [{ id: 'eval-4', maxTurns: 6, prompt: 'Output 1 if quantity is correctly updated.', threshold: 1 }],
+    objectives: [
+      {
+        instructions: 'Add a product then change its quantity to 3.',
+        goal: 'Quantity is updated to 3.',
+      },
+    ],
+    evaluation: {
+      maxTurns: 6,
+      criteria: [
+        { id: 'c-4', prompt: 'Output 1 if quantity is correctly updated, otherwise 0.' },
+      ],
+    },
     createdAt: Date.now() - 50000000,
   },
   {
     id: 'persona-5',
     personaKey: 'User seeking a product recommendation',
-    objectives: [{ instructions: 'Ask for a wine recommendation for a dinner party.', goal: 'A specific product is recommended.' }],
-    evaluations: [{ id: 'eval-5', maxTurns: 5, prompt: 'Output 1 if a clear recommendation is made.', threshold: 1 }],
+    objectives: [
+      {
+        instructions: 'Ask for a wine recommendation for a dinner party.',
+        goal: 'A specific product is recommended.',
+      },
+    ],
+    evaluation: {
+      maxTurns: 5,
+      criteria: [
+        { id: 'c-5', prompt: 'Output 1 if a clear recommendation is made, otherwise 0.' },
+      ],
+    },
     createdAt: Date.now() - 40000000,
   },
 ]
@@ -64,9 +105,21 @@ const SEED_PERSONAS: Persona[] = [
 export const personasAtom = atom<Persona[]>(SEED_PERSONAS)
 
 export const sectionsAtom = atom<PersonaSection[]>([
-  { id: 'section-1', name: 'casos_de_uso_fixtures', personaIds: Array.from({ length: 16 }, (_, i) => `fixture-${i}`) },
-  { id: 'section-2', name: 'checkout_agentic_fixtures', personaIds: Array.from({ length: 7 }, (_, i) => `checkout-${i}`) },
-  { id: 'section-3', name: 'product_recommendation_fixtures', personaIds: Array.from({ length: 16 }, (_, i) => `prod-${i}`) },
+  {
+    id: 'section-1',
+    name: 'casos_de_uso_fixtures',
+    personaIds: Array.from({ length: 16 }, (_, i) => `fixture-${i}`),
+  },
+  {
+    id: 'section-2',
+    name: 'checkout_agentic_fixtures',
+    personaIds: Array.from({ length: 7 }, (_, i) => `checkout-${i}`),
+  },
+  {
+    id: 'section-3',
+    name: 'product_recommendation_fixtures',
+    personaIds: Array.from({ length: 16 }, (_, i) => `prod-${i}`),
+  },
 ])
 
 export const selectedPersonaIdAtom = atom<string | null>('persona-1')
@@ -79,8 +132,7 @@ export const testRunsAtom = atom<TestRunsState>({
         passed: true,
         score: 1,
         prompt:
-          'Success criteria are either the assistant showing a single product and adding it to the cart in a single turn OR the assistant showing multiple products, the user selecting one, and the assistant adding it to the cart. Output 1 if the criteria are met, otherwise 0.',
-        threshold: 1,
+          'Output 1 if the assistant shows a product and adds it to the cart, otherwise 0.',
       },
     ],
   },
@@ -91,6 +143,5 @@ export type { PersonaFormData } from '@/types'
 export type SidebarTab = 'personas' | 'chat'
 export const sidebarTabAtom = atom<SidebarTab>('personas')
 
-// Persona form navigation: null = list, 'create' = new, personaId = edit
 export type PersonaFormMode = null | 'create' | string
 export const personaFormModeAtom = atom<PersonaFormMode>(null)

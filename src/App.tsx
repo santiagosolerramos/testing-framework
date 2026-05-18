@@ -115,7 +115,7 @@ function MainArea() {
       ? {
           personaKey: existing.personaKey,
           objectives: existing.objectives,
-          evaluations: existing.evaluations,
+          evaluation: existing.evaluation,
           mockData: existing.mockData,
         }
       : undefined

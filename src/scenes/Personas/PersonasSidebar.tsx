@@ -65,12 +65,11 @@ export function PersonasSidebar() {
       try {
         await mockInvokeAgent(persona.objectives[0]?.instructions || 'test')
         const passed = Math.random() > 0.2
-        const evalResults = persona.evaluations.map((e, i) => ({
+        const evalResults = persona.evaluation.criteria.map((c, i) => ({
           name: `Evaluation ${i + 1}`,
           passed,
           score: passed ? 1 : 0,
-          prompt: e.prompt,
-          threshold: e.threshold,
+          prompt: c.prompt,
         }))
         setTestRuns((prev) => ({
           ...prev,
