@@ -1,73 +1,44 @@
-# React + TypeScript + Vite
+# Connectly Test Clone
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+UI clone for persona testing: sandbox chat, persona creation wizards (description, conversation, sandbox), fixtures, and a three-column test run view.
 
-Currently, two official plugins are available:
+## Live demo (GitHub Pages)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+After deploy:
 
-## React Compiler
+**https://santiagosolerramos.github.io/connectly-test-clone/**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local development
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open the URL Vite prints (includes base path `/connectly-test-clone/`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Publish to GitHub (one command)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+chmod +x scripts/publish-to-github.sh
+./scripts/publish-to-github.sh
 ```
+
+Requires [GitHub CLI](https://cli.github.com/) (`brew install gh`) and `gh auth login` the first time.
+
+Manual alternative:
+
+1. Create public repo `connectly-test-clone` under [santiagosolerramos](https://github.com/santiagosolerramos).
+2. `git remote set-url origin https://github.com/santiagosolerramos/connectly-test-clone.git`
+3. `git push -u origin main`
+4. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**
+
+Push to `main` runs `.github/workflows/deploy.yml` automatically.
+
+## Sandbox testing tips
+
+| Flow | How |
+|------|-----|
+| Example chat | Sandbox → **Example: Product recommendation** |
+| Session ID (wizard) | `sandbox-example-product-rec`, any Sandbox session ID from **Copy Session ID**, or `demo-abc` / `prod-xyz` |
+| Create persona | **Create persona from session** (stays in Sandbox, opens review overlay) |
