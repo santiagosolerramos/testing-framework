@@ -6,7 +6,7 @@ UI clone for persona testing: sandbox chat, persona creation wizards (descriptio
 
 After deploy:
 
-**https://santiagosolerramos.github.io/connectly-test-clone/**
+**https://santiagosolerramos.github.io/testing-framework/**
 
 ## Local development
 
@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints (includes base path `/connectly-test-clone/`).
+Open the URL Vite prints (includes base path `/testing-framework/`).
 
 ## Publish to GitHub (one command)
 
@@ -28,8 +28,8 @@ Requires [GitHub CLI](https://cli.github.com/) (`brew install gh`) and `gh auth 
 
 Manual alternative:
 
-1. Create public repo `connectly-test-clone` under [santiagosolerramos](https://github.com/santiagosolerramos).
-2. `git remote set-url origin https://github.com/santiagosolerramos/connectly-test-clone.git`
+1. Repo: [santiagosolerramos/testing-framework](https://github.com/santiagosolerramos/testing-framework)
+2. `git remote set-url origin https://github.com/santiagosolerramos/testing-framework.git`
 3. `git push -u origin main`
 4. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**
 

@@ -5,7 +5,7 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/connectly-test-clone/',
+  base: '/testing-framework/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
