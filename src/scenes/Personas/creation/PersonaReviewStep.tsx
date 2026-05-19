@@ -6,6 +6,7 @@ import type { Persona } from '@/types'
 import type { PersonaWizardDraft } from '@/types/personaCreation'
 import { wizardDraftToFormData } from '@/types/personaCreation'
 import { PersonaForm } from '../PersonaForm'
+import { inferSectionId } from '../personaSections'
 
 type Props = {
   draft: PersonaWizardDraft
@@ -24,6 +25,8 @@ export function PersonaReviewStep({ draft, onBack, onClose, onDone }: Props) {
         id: ulid(),
         ...data,
         status: asDraft ? 'draft' : 'active',
+        sectionId: data.sectionId ?? inferSectionId(data.fixtureId),
+        validationPasses: asDraft ? 0 : undefined,
         createdAt: Date.now(),
       }
       setPersonas((prev) => [...prev, newPersona])

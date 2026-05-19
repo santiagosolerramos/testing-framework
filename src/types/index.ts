@@ -62,6 +62,10 @@ export interface Persona {
   /** @deprecated Migrated to fixtureId on load; not persisted on save */
   mockData?: string
   status?: PersonaStatus
+  /** Folder this persona belongs to — same folder id appears under Active and Draft zones */
+  sectionId?: string
+  /** Consecutive manual test passes while draft (0–3); promotion still manual in MVP */
+  validationPasses?: number
   createdAt: number
 }
 
@@ -77,4 +81,5 @@ export interface PersonaFormData {
   objectives: PersonaObjective[]
   evaluation: PersonaEvaluation
   fixtureId?: string | null
+  sectionId?: string | null
 }

@@ -97,11 +97,24 @@ function PersonaFormOverlay() {
   const handleFormSubmit = useCallback(
     async (data: PersonaFormData) => {
       if (formMode === 'create') {
-        const newPersona = { id: ulid(), ...data, createdAt: Date.now() }
+        const newPersona = {
+          id: ulid(),
+          ...data,
+          status: 'draft' as const,
+          sectionId: data.sectionId ?? 'section-1',
+          validationPasses: 0,
+          createdAt: Date.now(),
+        }
         setPersonas((prev) => [...prev, newPersona])
         setSelectedId(newPersona.id)
       } else if (formMode && formMode !== 'create') {
-        setPersonas((prev) => prev.map((p) => (p.id === formMode ? { ...p, ...data } : p)))
+        setPersonas((prev) =>
+          prev.map((p) =>
+            p.id === formMode
+              ? { ...p, ...data, sectionId: data.sectionId ?? undefined }
+              : p
+          )
+        )
       }
       setFormMode(null)
     },
@@ -122,6 +135,7 @@ function PersonaFormOverlay() {
         objectives: existing.objectives,
         evaluation: existing.evaluation,
         fixtureId: existing.fixtureId ?? null,
+        sectionId: existing.sectionId ?? 'section-1',
       }
     : undefined
 

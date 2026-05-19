@@ -13,8 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
-import type { TestRunStatus } from '@/types'
+import type { PersonaStatus, TestRunStatus } from '@/types'
 import { cn } from '@/lib/utils'
+import { PersonaStatusBadge } from './PersonaStatusBadge'
 
 function ExecutionStatusIcon({ status }: { status: TestRunStatus }) {
   switch (status) {
@@ -31,24 +32,32 @@ function ExecutionStatusIcon({ status }: { status: TestRunStatus }) {
 
 type Props = {
   label: string
-  status?: TestRunStatus
-  isDraft?: boolean
+  personaStatus: PersonaStatus
+  runStatus?: TestRunStatus
   isSelected?: boolean
   onSelect: () => void
-  onDuplicate?: () => void
+  onEdit?: () => void
+  onDuplicateToDraft?: () => void
   onDelete?: () => void
+  onPromoteToActive?: () => void
+  showStatusBadge?: boolean
+  trailing?: React.ReactNode
 }
 
 export function PersonaSidebarItem({
   label,
-  status = 'TEST_RUN_STATUS_UNSPECIFIED',
-  isDraft,
+  personaStatus,
+  runStatus = 'TEST_RUN_STATUS_UNSPECIFIED',
   isSelected,
   onSelect,
-  onDuplicate,
+  onEdit,
+  onDuplicateToDraft,
   onDelete,
+  onPromoteToActive,
+  showStatusBadge = true,
+  trailing,
 }: Props) {
-  const showMenu = onDuplicate || onDelete
+  const showMenu = onEdit || onDuplicateToDraft || onDelete || onPromoteToActive
 
   return (
     <div
@@ -60,15 +69,14 @@ export function PersonaSidebarItem({
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2.5 py-2 text-left text-sm text-gray-700"
+        className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left text-sm text-gray-700"
       >
-        <ExecutionStatusIcon status={status} />
-        <span className="truncate">{label}</span>
-        {isDraft && (
-          <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-            Draft
-          </span>
+        <ExecutionStatusIcon status={runStatus} />
+        <span className="min-w-0 truncate">{label}</span>
+        {showStatusBadge && (
+          <PersonaStatusBadge status={personaStatus} className="ml-auto" />
         )}
+        {trailing}
       </button>
       {showMenu && (
         <DropdownMenu>
@@ -84,9 +92,19 @@ export function PersonaSidebarItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[11.25rem]">
-            {onDuplicate && (
-              <DropdownMenuItem className="cursor-pointer" onClick={onDuplicate}>
-                Duplicate
+            {onPromoteToActive && (
+              <DropdownMenuItem className="cursor-pointer" onClick={onPromoteToActive}>
+                Promote to Active
+              </DropdownMenuItem>
+            )}
+            {onDuplicateToDraft && (
+              <DropdownMenuItem className="cursor-pointer" onClick={onDuplicateToDraft}>
+                Duplicate to draft
+              </DropdownMenuItem>
+            )}
+            {onEdit && (
+              <DropdownMenuItem className="cursor-pointer" onClick={onEdit}>
+                Edit
               </DropdownMenuItem>
             )}
             {onDelete && (
@@ -104,7 +122,6 @@ export function PersonaSidebarItem({
   )
 }
 
-/** Folder row — same horizontal padding, no rounded-md */
 export function PersonaFolderItem({
   label,
   count,
@@ -128,7 +145,6 @@ export function PersonaFolderItem({
   )
 }
 
-// Error state icon (for future TEST_RUN_STATUS_ERROR)
 export function PersonaErrorIcon() {
   return <OctagonAlertIcon className="h-4 w-4 shrink-0 text-red-500" />
 }

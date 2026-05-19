@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { PlusIcon, XIcon, FileIcon, PenIcon } from 'lucide-react'
@@ -15,6 +16,7 @@ import { EvaluationFormModal } from './EvaluationFormModal'
 import { FixturePanelModal } from './FixturePanelModal'
 import { getFixtureById } from '@/fixtures/fixtureRegistry'
 import { EvaluationTypeBadge } from './evaluation/EvaluationTypeBadge'
+import { sectionsAtom } from '@/atoms'
 
 type ReviewMeta = {
   sourceFlow: 'description' | 'conversation'
@@ -61,6 +63,7 @@ export function PersonaForm({
   onBack,
   onDelete,
 }: Props) {
+  const sections = useAtomValue(sectionsAtom)
   const form = useForm<PersonaFormData>({
     resolver: zodResolver(personaFormSchema),
     defaultValues: initialData || INITIAL_PERSONA_DATA,
@@ -192,6 +195,34 @@ export function PersonaForm({
                       </FormControl>
                       <p className="text-sm text-muted-foreground">
                         This will be displayed in test results
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="sectionId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Folder</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-9 w-full max-w-2xl rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={field.value ?? 'section-1'}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          disabled={form.formState.isSubmitting}
+                        >
+                          {sections.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <p className="text-sm text-muted-foreground">
+                        Appears under this folder in both Active and Draft lists
                       </p>
                       <FormMessage />
                     </FormItem>

@@ -30,6 +30,7 @@ export const personaFormSchema = z.object({
     criteria: z.array(criterionSchema).min(1, 'At least one evaluation is required'),
   }),
   fixtureId: z.string().nullable().optional(),
+  sectionId: z.string().nullable().optional(),
 })
 
 export const INITIAL_PERSONA_DATA: PersonaFormData = {
@@ -37,6 +38,7 @@ export const INITIAL_PERSONA_DATA: PersonaFormData = {
   objectives: [{ instructions: '', goal: '' }],
   evaluation: { maxTurns: 10, criteria: [{ id: 'initial', prompt: '' }] },
   fixtureId: null,
+  sectionId: 'section-1',
 }
 
 export function extractFormErrors(

@@ -1,12 +1,25 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { CopyIcon, SettingsIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { ChatTestColumnLayout } from '@/components/layout/ChatTestColumnLayout'
 import { personasAtom, selectedPersonaIdAtom, testRunsAtom, personaFormModeAtom } from '@/atoms'
 import { mockInvokeAgent } from '@/services/mockAI'
 import { CHECKOUT_CEP_LOOKUP_DEMO } from './demoConversations'
 import { RunMessageList } from './RunMessageList'
+import { PersonaStatusBadge } from './PersonaStatusBadge'
+import { PromotePersonaDialog } from './PromotePersonaDialog'
+import { ValidationProgressBadge } from './ValidationProgressBadge'
+import {
+  duplicatePersonaAsDraft,
+  getPersonaStatus,
+  getValidationPasses,
+  isReadyToPromote,
+  recordValidationResult,
+  REQUIRED_VALIDATION_PASSES,
+  setPersonaStatus,
+} from './personaStatus'
 import type { RunEntry } from './runTypes'
 
 const DEMO_PERSONA_KEY = 'checkout-cep-lookup'
@@ -31,6 +44,8 @@ async function playScriptedRun(
 
 export function PersonaRunView() {
   const personas = useAtomValue(personasAtom)
+  const [, setPersonas] = useAtom(personasAtom)
+  const setSelectedId = useSetAtom(selectedPersonaIdAtom)
   const selectedId = useAtomValue(selectedPersonaIdAtom)
   const testRuns = useAtomValue(testRunsAtom)
   const setTestRuns = useSetAtom(testRunsAtom)
@@ -38,6 +53,7 @@ export function PersonaRunView() {
   const [sessionId] = useState(() => `session-${Math.random().toString(36).slice(2, 9)}`)
   const [entries, setEntries] = useState<RunEntry[]>([])
   const [running, setRunning] = useState(false)
+  const [promoteOpen, setPromoteOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const persona = personas.find((p) => p.id === selectedId)
@@ -95,12 +111,18 @@ export function PersonaRunView() {
           evaluationResults: evalResults,
         },
       }))
+      if (getPersonaStatus(persona) === 'draft') {
+        setPersonas((prev) => recordValidationResult(prev, persona.id, passed))
+      }
     } catch {
       setTestRuns((prev) => ({ ...prev, [persona.id]: { status: 'TEST_RUN_STATUS_FAILED' } }))
+      if (getPersonaStatus(persona) === 'draft') {
+        setPersonas((prev) => recordValidationResult(prev, persona.id, false))
+      }
     } finally {
       setRunning(false)
     }
-  }, [persona, running, setTestRuns])
+  }, [persona, running, setTestRuns, setPersonas])
 
   const copySession = useCallback(() => {
     navigator.clipboard.writeText(sessionId).catch(() => {})
@@ -115,12 +137,51 @@ export function PersonaRunView() {
   }
 
   const showEmpty = entries.length === 0 && !running
+  const personaStatus = getPersonaStatus(persona)
+  const isDraft = personaStatus === 'draft'
+  const validationPasses = getValidationPasses(persona)
+  const readyToPromote = isReadyToPromote(persona)
 
   return (
+  <>
     <ChatTestColumnLayout
-      title={<h2 className="text-base font-semibold text-gray-900">{persona.personaKey}</h2>}
+      title={
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="truncate text-base font-semibold text-gray-900">{persona.personaKey}</h2>
+          <PersonaStatusBadge status={personaStatus} />
+        </div>
+      }
       actions={
         <>
+          {isDraft ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              disabled={!readyToPromote}
+              title={
+                readyToPromote
+                  ? undefined
+                  : `Complete ${REQUIRED_VALIDATION_PASSES} consecutive passing tests first (${validationPasses}/${REQUIRED_VALIDATION_PASSES})`
+              }
+              onClick={() => readyToPromote && setPromoteOpen(true)}
+            >
+              Promote to Active
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => {
+                const copy = duplicatePersonaAsDraft(persona)
+                setPersonas((prev) => [...prev, copy])
+                setSelectedId(copy.id)
+              }}
+            >
+              Duplicate to draft
+            </Button>
+          )}
           <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-gray-500" onClick={copySession}>
             <CopyIcon className="h-3.5 w-3.5" />
             Session ID
@@ -139,6 +200,25 @@ export function PersonaRunView() {
         </>
       }
     >
+      {isDraft && (
+        <div
+          className={cn(
+            'mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm',
+            readyToPromote
+              ? 'border-green-200 bg-green-50 text-green-900'
+              : 'border-amber-200 bg-amber-50 text-amber-950'
+          )}
+        >
+          <div>
+            <p className="font-medium">Draft validation</p>
+            <p className="mt-0.5 text-xs opacity-90">
+              Run <strong>Test</strong> until you reach {REQUIRED_VALIDATION_PASSES} consecutive
+              passes, then <strong>Promote to Active</strong>. Failed runs reset the counter.
+            </p>
+          </div>
+          <ValidationProgressBadge passes={validationPasses} className="text-xs" />
+        </div>
+      )}
       {showEmpty ? (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
@@ -171,5 +251,12 @@ export function PersonaRunView() {
         <RunMessageList entries={entries} running={running} messagesEndRef={messagesEndRef} />
       )}
     </ChatTestColumnLayout>
+    <PromotePersonaDialog
+      open={promoteOpen && readyToPromote}
+      onOpenChange={setPromoteOpen}
+      personaKey={persona.personaKey}
+      onConfirm={() => setPersonas((prev) => setPersonaStatus(prev, persona.id, 'active'))}
+    />
+  </>
   )
 }

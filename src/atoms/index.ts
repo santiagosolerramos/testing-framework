@@ -21,6 +21,8 @@ export const runningVersionAtom = atom<string>('0.0 (v1)')
 const SEED_PERSONAS: Persona[] = [
   {
     id: 'persona-1',
+    status: 'active',
+    sectionId: 'section-1',
     personaKey: 'Proactively adding to cart',
     objectives: [
       {
@@ -43,6 +45,8 @@ const SEED_PERSONAS: Persona[] = [
   },
   {
     id: 'persona-2',
+    status: 'active',
+    sectionId: 'section-1',
     personaKey: 'Searching for a search term mapping',
     objectives: [
       {
@@ -60,6 +64,8 @@ const SEED_PERSONAS: Persona[] = [
   },
   {
     id: 'persona-3',
+    status: 'active',
+    sectionId: 'section-3',
     personaKey: 'User adding multiple different products to cart',
     objectives: [
       {
@@ -77,6 +83,8 @@ const SEED_PERSONAS: Persona[] = [
   },
   {
     id: 'persona-4',
+    status: 'active',
+    sectionId: 'section-3',
     personaKey: 'User adding product then changing quantity',
     objectives: [
       {
@@ -94,6 +102,8 @@ const SEED_PERSONAS: Persona[] = [
   },
   {
     id: 'persona-checkout-cep',
+    status: 'active',
+    sectionId: 'section-2',
     personaKey: 'checkout-cep-lookup',
     objectives: [
       {
@@ -122,6 +132,8 @@ const SEED_PERSONAS: Persona[] = [
   },
   {
     id: 'persona-5',
+    status: 'active',
+    sectionId: 'section-3',
     personaKey: 'User seeking a product recommendation',
     objectives: [
       {
@@ -137,6 +149,31 @@ const SEED_PERSONAS: Persona[] = [
     },
     createdAt: Date.now() - 40000000,
   },
+  {
+    id: 'persona-draft-checkout',
+    status: 'draft',
+    sectionId: 'section-2',
+    validationPasses: 2,
+    personaKey: 'Draft — checkout CEP validation',
+    objectives: [
+      {
+        instructions:
+          'Ask the assistant to validate your CEP before checkout. Provide 01310-100 when asked.',
+        goal: 'Assistant validates CEP and confirms address.',
+      },
+    ],
+    evaluation: {
+      maxTurns: 6,
+      criteria: [
+        {
+          id: 'c-draft-cep',
+          prompt: 'Output 1 if CEP is validated, otherwise 0.',
+        },
+      ],
+    },
+    fixtureId: 'checkout_cep_default',
+    createdAt: Date.now() - 3600000,
+  },
 ]
 
 const { personas: MIGRATED_PERSONAS } = migrateLegacyPersonas(SEED_PERSONAS)
@@ -146,17 +183,17 @@ export const sectionsAtom = atom<PersonaSection[]>([
   {
     id: 'section-1',
     name: 'casos_de_uso_fixtures',
-    personaIds: Array.from({ length: 16 }, (_, i) => `fixture-${i}`),
+    personaIds: [],
   },
   {
     id: 'section-2',
     name: 'checkout_agentic_fixtures',
-    personaIds: Array.from({ length: 7 }, (_, i) => `checkout-${i}`),
+    personaIds: [],
   },
   {
     id: 'section-3',
     name: 'product_recommendation_fixtures',
-    personaIds: Array.from({ length: 16 }, (_, i) => `prod-${i}`),
+    personaIds: [],
   },
 ])
 

@@ -26,7 +26,11 @@ export function SandboxPersonaReviewOverlay() {
 
   const update = (data: PersonaFormData, status: 'draft' | 'active') => {
     setPersonas((prev) =>
-      prev.map((p) => (p.id === personaId ? { ...p, ...data, status } : p))
+      prev.map((p) =>
+        p.id === personaId
+          ? { ...p, ...data, status, sectionId: data.sectionId ?? p.sectionId }
+          : p
+      )
     )
     close()
   }

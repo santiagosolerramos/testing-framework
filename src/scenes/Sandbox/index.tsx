@@ -45,6 +45,7 @@ import {
   SANDBOX_EXAMPLE_SESSION_ID,
 } from './sandboxExampleSession'
 import { SandboxPersonaReviewOverlay } from './SandboxPersonaReviewOverlay'
+import { inferSectionId } from '@/scenes/Personas/personaSections'
 import { cn } from '@/lib/utils'
 import type { Message, Persona } from '@/types'
 
@@ -370,10 +371,13 @@ export function SandboxContent() {
         return
       }
       const id = ulid()
+      const formData = wizardDraftToFormData(draft)
       const newPersona: Persona = {
         id,
-        ...wizardDraftToFormData(draft),
+        ...formData,
         status: 'draft',
+        sectionId: inferSectionId(formData.fixtureId),
+        validationPasses: 0,
         createdAt: Date.now(),
       }
       setPersonas((prev) => [...prev, newPersona])
