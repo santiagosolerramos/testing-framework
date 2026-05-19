@@ -16,17 +16,22 @@ import {
 import type { PersonaFormData, SidebarTab } from '@/atoms'
 import { cn } from '@/lib/utils'
 import { ulid } from 'ulid'
+import { personaCreationAtom } from '@/atoms/personaCreation'
+import { PersonaCreationFlow } from '@/scenes/Personas/creation/PersonaCreationFlow'
 
 const queryClient = new QueryClient()
 
-// ─── Left icon nav ────────────────────────────────────────────────────────────
+/** Tres columnas ~iguales; chat solo un poco más ancho. */
+const PERSONAS_GRID =
+  'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,1fr)]'
+
 function LeftNav() {
   return (
-    <div className="w-12 flex-shrink-0 border-r border-gray-200 flex flex-col items-center py-3 gap-4 bg-white">
-      <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
-        <FlaskConicalIcon className="w-4 h-4 text-white" />
+    <div className="flex w-12 shrink-0 flex-col items-center gap-4 border-r border-gray-200 bg-white py-3">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900">
+        <FlaskConicalIcon className="h-4 w-4 text-white" />
       </div>
-      <div className="flex flex-col items-center gap-3 mt-2">
+      <div className="mt-2 flex flex-col items-center gap-3">
         {[
           { icon: ListIcon, label: 'Executions' },
           { icon: BookOpenIcon, label: 'Knowledge' },
@@ -36,9 +41,9 @@ function LeftNav() {
             key={label}
             type="button"
             title={label}
-            className="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="h-4 w-4" />
           </button>
         ))}
       </div>
@@ -46,42 +51,45 @@ function LeftNav() {
   )
 }
 
-// ─── Sidebar panel ────────────────────────────────────────────────────────────
-function SidebarPanel() {
+type SidebarPanelProps = { className?: string }
+
+function SidebarPanel({ className }: SidebarPanelProps) {
   const [tab, setTab] = useAtom(sidebarTabAtom)
   return (
-    <div className="w-64 flex-shrink-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
-      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+    <aside
+      className={cn(
+        'flex min-w-0 flex-col overflow-hidden border-r border-gray-200 bg-white',
+        className
+      )}
+    >
+      <div className="shrink-0 border-b border-gray-200 px-3 py-3">
         <p className="text-sm font-semibold text-gray-900">Agents</p>
       </div>
-      {/* Tabs — pill style */}
-      <div className="flex gap-1 px-3 py-2 border-b border-gray-200 flex-shrink-0">
+      <div className="flex shrink-0 gap-1 border-b border-gray-200 px-3 py-2">
         {(['personas', 'chat'] as SidebarTab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={cn(
-              'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors duration-500',
+              'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-500',
               tab === t
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                ? 'border border-gray-200 bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
             )}
           >
             {t === 'personas' ? 'Personas' : 'Chat'}
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-hidden flex flex-col min-h-0 pt-1">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {tab === 'personas' ? <PersonasSidebar /> : <SandboxSidebar />}
       </div>
-    </div>
+    </aside>
   )
 }
 
-// ─── Main area ────────────────────────────────────────────────────────────────
-function MainArea() {
-  const tab = useAtomValue(sidebarTabAtom)
+function PersonaFormOverlay() {
   const [formMode, setFormMode] = useAtom(personaFormModeAtom)
   const [personas, setPersonas] = useAtom(personasAtom)
   const setSelectedId = useSetAtom(selectedPersonaIdAtom)
@@ -107,61 +115,82 @@ function MainArea() {
     setSelectedId(null)
   }, [formMode, setPersonas, setFormMode, setSelectedId])
 
-  // Form overlay (full width, no panels)
-  if (formMode !== null) {
-    const existing = personas.find((p) => p.id === formMode)
-    const initialData: PersonaFormData | undefined = existing
-      ? {
-          personaKey: existing.personaKey,
-          objectives: existing.objectives,
-          evaluation: existing.evaluation,
-          mockData: existing.mockData,
-        }
-      : undefined
+  const existing = personas.find((p) => p.id === formMode)
+  const initialData: PersonaFormData | undefined = existing
+    ? {
+        personaKey: existing.personaKey,
+        objectives: existing.objectives,
+        evaluation: existing.evaluation,
+        fixtureId: existing.fixtureId ?? null,
+      }
+    : undefined
 
+  return (
+    <PersonaForm
+      mode={formMode === 'create' ? 'create' : 'update'}
+      initialData={initialData}
+      onSubmit={handleFormSubmit}
+      onCancel={() => setFormMode(null)}
+      onDelete={formMode !== 'create' ? handleDelete : undefined}
+    />
+  )
+}
+
+function AppShell() {
+  const tab = useAtomValue(sidebarTabAtom)
+  const formMode = useAtomValue(personaFormModeAtom)
+  const creation = useAtomValue(personaCreationAtom)
+
+  const isWizardFullscreen =
+    creation?.kind === 'description' || creation?.kind === 'conversation'
+
+  if (isWizardFullscreen) {
     return (
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <PersonaForm
-          mode={formMode === 'create' ? 'create' : 'update'}
-          initialData={initialData}
-          onSubmit={handleFormSubmit}
-          onCancel={() => setFormMode(null)}
-          onDelete={formMode !== 'create' ? handleDelete : undefined}
-        />
+      <div className="flex h-screen overflow-hidden bg-white">
+        <LeftNav />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <PersonaCreationFlow />
+        </main>
+      </div>
+    )
+  }
+
+  if (formMode !== null) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-white">
+        <LeftNav />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <PersonaFormOverlay />
+        </main>
       </div>
     )
   }
 
   if (tab === 'chat') {
     return (
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
-        <SandboxContent />
+      <div className="flex h-screen overflow-hidden bg-white">
+        <LeftNav />
+        <SidebarPanel className="w-64 shrink-0" />
+        <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <SandboxContent />
+        </main>
       </div>
     )
   }
 
-  // Personas: fixed results panel on the right
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <PersonaRunView />
-      </div>
-      <div className="w-[30%] min-w-[280px] max-w-[420px] flex-shrink-0 border-l border-gray-200 overflow-hidden">
-        <ResultsPanel />
-      </div>
-    </div>
-  )
-}
-
-// ─── Root ─────────────────────────────────────────────────────────────────────
-function AppShell() {
-  return (
-    <div className="h-screen flex overflow-hidden bg-white">
+    <div className="flex h-screen overflow-hidden bg-white">
       <LeftNav />
-      <SidebarPanel />
-      <main className="flex flex-1 min-h-0 overflow-hidden">
-        <MainArea />
-      </main>
+      <div className={cn(PERSONAS_GRID, 'min-w-0')}>
+        <SidebarPanel />
+        <section className="min-w-0 overflow-hidden border-r border-gray-200">
+          <PersonaRunView />
+        </section>
+        <aside className="min-w-0 overflow-hidden">
+          <ResultsPanel />
+        </aside>
+      </div>
+      <PersonaCreationFlow />
     </div>
   )
 }

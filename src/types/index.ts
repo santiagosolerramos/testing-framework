@@ -50,12 +50,18 @@ export interface PersonaEvaluation {
   criteria: EvaluationCriterion[]
 }
 
+export type PersonaStatus = 'active' | 'draft'
+
 export interface Persona {
   id: string
   personaKey: string
   objectives: PersonaObjective[]
   evaluation: PersonaEvaluation
+  /** Single fixture slot — source of truth for simulated tool results */
+  fixtureId?: string | null
+  /** @deprecated Migrated to fixtureId on load; not persisted on save */
   mockData?: string
+  status?: PersonaStatus
   createdAt: number
 }
 
@@ -70,5 +76,5 @@ export interface PersonaFormData {
   personaKey: string
   objectives: PersonaObjective[]
   evaluation: PersonaEvaluation
-  mockData?: string
+  fixtureId?: string | null
 }

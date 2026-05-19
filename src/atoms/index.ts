@@ -1,9 +1,18 @@
 import { atom } from 'jotai'
 import type { Conversation, TestRunsState, Persona, PersonaSection } from '@/types'
+import { migrateLegacyPersonas } from '@/fixtures/migrateLegacyMockData'
+import {
+  SANDBOX_EXAMPLE_CONVERSATION,
+  SANDBOX_EXAMPLE_SESSION_ID,
+} from '@/scenes/Sandbox/sandboxExampleSession'
 
 // ─── Sandbox / Chat atoms ────────────────────────────────────────────────────
-export const sandboxConversationsAtom = atom<Record<string, Conversation>>({})
-export const selectedSandboxSessionIdAtom = atom<string | null>(null)
+export const sandboxConversationsAtom = atom<Record<string, Conversation>>({
+  [SANDBOX_EXAMPLE_SESSION_ID]: SANDBOX_EXAMPLE_CONVERSATION,
+})
+export const selectedSandboxSessionIdAtom = atom<string | null>(SANDBOX_EXAMPLE_SESSION_ID)
+/** When set, Sandbox shows Review & Save overlay for this draft persona id */
+export const sandboxReviewPersonaIdAtom = atom<string | null>(null)
 export const sandboxDeleteTargetAtom = atom<string | null>(null)
 export const deployedVersionAtom = atom<string>('1.12 (v74)')
 export const runningVersionAtom = atom<string>('0.0 (v1)')
@@ -84,6 +93,34 @@ const SEED_PERSONAS: Persona[] = [
     createdAt: Date.now() - 50000000,
   },
   {
+    id: 'persona-checkout-cep',
+    personaKey: 'checkout-cep-lookup',
+    objectives: [
+      {
+        instructions:
+          '1) Start by expressing your interest in completing a checkout and ask if the assistant can look up your postal code (CEP) in Brazil.\n2) Tell the assistant you are looking for help validating your delivery address before placing an order.\n3) Provide a valid 8-digit CEP when prompted and confirm the address details returned.',
+        goal: 'The assistant successfully looks up the CEP and confirms the delivery address.',
+      },
+    ],
+    evaluation: {
+      maxTurns: 6,
+      criteria: [
+        {
+          id: 'c-cep-1',
+          prompt:
+            'Output 1 if the assistant asks for and validates a Brazilian CEP, otherwise 0.',
+        },
+        {
+          id: 'c-cep-2',
+          prompt:
+            'Output 1 if the assistant confirms the address and offers a relevant product, otherwise 0.',
+        },
+      ],
+    },
+    fixtureId: 'checkout_cep_default',
+    createdAt: Date.now() - 45000000,
+  },
+  {
     id: 'persona-5',
     personaKey: 'User seeking a product recommendation',
     objectives: [
@@ -102,7 +139,8 @@ const SEED_PERSONAS: Persona[] = [
   },
 ]
 
-export const personasAtom = atom<Persona[]>(SEED_PERSONAS)
+const { personas: MIGRATED_PERSONAS } = migrateLegacyPersonas(SEED_PERSONAS)
+export const personasAtom = atom<Persona[]>(MIGRATED_PERSONAS)
 
 export const sectionsAtom = atom<PersonaSection[]>([
   {
@@ -122,9 +160,9 @@ export const sectionsAtom = atom<PersonaSection[]>([
   },
 ])
 
-export const selectedPersonaIdAtom = atom<string | null>('persona-1')
+export const selectedPersonaIdAtom = atom<string | null>('persona-checkout-cep')
 export const testRunsAtom = atom<TestRunsState>({
-  'persona-1': {
+  'persona-checkout-cep': {
     status: 'TEST_RUN_STATUS_PASSED',
     evaluationResults: [
       {
@@ -132,7 +170,14 @@ export const testRunsAtom = atom<TestRunsState>({
         passed: true,
         score: 1,
         prompt:
-          'Output 1 if the assistant shows a product and adds it to the cart, otherwise 0.',
+          'Output 1 if the assistant asks for and validates a Brazilian CEP, otherwise 0.',
+      },
+      {
+        name: 'Evaluation 2',
+        passed: true,
+        score: 1,
+        prompt:
+          'Output 1 if the assistant confirms the address and offers a relevant product, otherwise 0.',
       },
     ],
   },

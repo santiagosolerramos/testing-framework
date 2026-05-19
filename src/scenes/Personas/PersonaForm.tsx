@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { PlusIcon, XIcon, FileIcon, PenIcon } from 'lucide-react'
@@ -11,13 +11,28 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { personaFormSchema, INITIAL_PERSONA_DATA, extractFormErrors } from './form.config'
 import type { PersonaFormData } from '@/types'
 import { ulid } from 'ulid'
-import { cn } from '@/lib/utils'
+import { EvaluationFormModal } from './EvaluationFormModal'
+import { FixturePanelModal } from './FixturePanelModal'
+import { getFixtureById } from '@/fixtures/fixtureRegistry'
+import { EvaluationTypeBadge } from './evaluation/EvaluationTypeBadge'
+
+type ReviewMeta = {
+  sourceFlow: 'description' | 'conversation'
+  isDraft: boolean
+  mocksComplete: boolean
+  fixtureSummary?: string
+  uncoveredCapabilities?: string[]
+}
 
 type Props = {
   initialData?: PersonaFormData
   mode: 'create' | 'update' | 'duplicate'
+  variant?: 'default' | 'review'
+  reviewMeta?: ReviewMeta
   onSubmit: (data: PersonaFormData) => Promise<void> | void
+  onSaveDraft?: (data: PersonaFormData) => Promise<void> | void
   onCancel: () => void
+  onBack?: () => void
   onDelete?: () => void
 }
 
@@ -35,7 +50,17 @@ function StepBadge({ number }: { number: number }) {
   )
 }
 
-export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }: Props) {
+export function PersonaForm({
+  initialData,
+  mode,
+  variant = 'default',
+  reviewMeta,
+  onSubmit,
+  onSaveDraft,
+  onCancel,
+  onBack,
+  onDelete,
+}: Props) {
   const form = useForm<PersonaFormData>({
     resolver: zodResolver(personaFormSchema),
     defaultValues: initialData || INITIAL_PERSONA_DATA,
@@ -48,13 +73,22 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
 
   const handleSubmit = useCallback((data: PersonaFormData) => onSubmit(data), [onSubmit])
 
-  const addCriterion = useCallback(() => {
-    appendCriterion({ id: ulid(), prompt: '' })
-  }, [appendCriterion])
+  const [evalModalOpen, setEvalModalOpen] = useState(false)
+  const [fixturePanelOpen, setFixturePanelOpen] = useState(false)
+  const fixtureId = form.watch('fixtureId')
+  const assignedFixture = getFixtureById(fixtureId)
 
-  const title = TITLE_MAP[mode]
-  const isUpdate = mode === 'update'
+  const addCriterion = useCallback(
+    (prompt: string) => {
+      appendCriterion({ id: ulid(), prompt })
+    },
+    [appendCriterion]
+  )
+
+  const title = variant === 'review' ? 'Review & Save' : TITLE_MAP[mode]
+  const isDeletable = mode === 'update' && variant === 'default'
   const hasErrors = Object.keys(form.formState.errors).length > 0
+  const isReview = variant === 'review'
 
   return (
     <Form {...form}>
@@ -62,9 +96,15 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
         onSubmit={form.handleSubmit(handleSubmit)}
         className="flex flex-col flex-1 min-h-0 w-full h-full bg-white"
       >
-        {/* ── Sticky header ── */}
-        <header className="flex w-full items-center justify-between h-16 sticky top-0 bg-background z-10 border-b border-gray-200 px-6 flex-shrink-0">
-          <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <header className="sticky top-0 z-10 flex h-16 w-full shrink-0 items-center justify-between border-b border-gray-200 bg-background px-6">
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button type="button" variant="ghost" size="sm" onClick={onBack}>
+                Back
+              </Button>
+            )}
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -75,25 +115,60 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
             >
               Cancel
             </Button>
+            {isReview && onSaveDraft && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={form.formState.isSubmitting}
+                onClick={form.handleSubmit((data) => onSaveDraft(data))}
+              >
+                Save as draft
+              </Button>
+            )}
             <Button
               type="submit"
               size="sm"
               disabled={form.formState.isSubmitting}
               className="bg-purple-700 text-white hover:bg-purple-800"
             >
-              {form.formState.isSubmitting ? 'Saving...' : title}
+              {form.formState.isSubmitting ? 'Saving...' : isReview ? 'Save' : title}
             </Button>
           </div>
         </header>
 
-        {/* ── Scrollable body ── */}
-        <div className="flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-4xl px-4 pb-20">
+        {isReview && reviewMeta && (
+          <div
+            className={
+              reviewMeta.mocksComplete
+                ? 'border-b border-green-200 bg-green-50 px-6 py-3 text-sm text-green-900'
+                : 'border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-900'
+            }
+          >
+            <p>
+              Generated from{' '}
+              {reviewMeta.sourceFlow === 'description' ? 'description' : 'conversation'}.
+              {reviewMeta.fixtureSummary && <> {reviewMeta.fixtureSummary}</>}
+            </p>
+            {!reviewMeta.mocksComplete && (
+              <p className="mt-1 font-medium">
+                No fixture assigned — Save will store as Draft until resolved.
+                {reviewMeta.uncoveredCapabilities &&
+                  reviewMeta.uncoveredCapabilities.length > 0 && (
+                    <> Uncovered: {reviewMeta.uncoveredCapabilities.join(', ')}.</>
+                  )}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto bg-background px-4 pb-20">
+          <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 py-2">
 
             {/* ════════════════════════════════════════
                 Step 1 — Persona Configuration
             ════════════════════════════════════════ */}
-            <div className="py-8 flex flex-col gap-6">
+            <div className="flex w-full flex-col gap-6 py-8">
               <div className="flex items-center gap-3">
                 <StepBadge number={1} />
                 <h3 className="text-lg font-semibold text-foreground">Persona Configuration</h3>
@@ -187,25 +262,44 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
             <Separator />
 
             {/* ════════════════════════════════════════
-                Step 2 — Mock Data
+                Step 2 — Fixture
             ════════════════════════════════════════ */}
-            <div className="py-8 flex flex-col gap-6">
+            <div className="flex w-full flex-col gap-6 py-8">
               <div className="flex items-center gap-3">
                 <StepBadge number={2} />
-                <h3 className="text-lg font-semibold text-foreground">Mock Data</h3>
+                <h3 className="text-lg font-semibold text-foreground">Fixture</h3>
               </div>
+              <p className="-mt-4 text-sm text-muted-foreground">
+                One fixture per persona — shared, versioned tool results from the fixture library.
+              </p>
 
               <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
-                <div className="flex items-center gap-3">
-                  <FileIcon className="h-5 w-5 text-orange-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Mock data</p>
-                    <p className="text-sm text-muted-foreground">
-                      Mock data is required for tool call evaluations.
-                    </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <FileIcon className="h-5 w-5 shrink-0 text-orange-400" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Fixture</p>
+                    {assignedFixture ? (
+                      <p className="truncate text-sm text-muted-foreground">
+                        <span className="font-mono">{assignedFixture.name}</span>
+                        {assignedFixture.isAutoMigrated && (
+                          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                            Legacy
+                          </span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Not assigned</p>
+                    )}
                   </div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="hover:bg-gray-100 h-8 w-8 flex-shrink-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 hover:bg-gray-100"
+                  onClick={() => setFixturePanelOpen(true)}
+                  aria-label="View or change fixture"
+                >
                   <PenIcon className="h-4 w-4 text-gray-400" />
                 </Button>
               </div>
@@ -216,7 +310,7 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
             {/* ════════════════════════════════════════
                 Step 3 — Evaluations
             ════════════════════════════════════════ */}
-            <div className="py-8 flex flex-col gap-6">
+            <div className="flex w-full flex-col gap-6 py-8">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <StepBadge number={3} />
@@ -226,7 +320,7 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={addCriterion}
+                  onClick={() => setEvalModalOpen(true)}
                   className="gap-1.5"
                 >
                   <PlusIcon className="w-4 h-4" />
@@ -267,6 +361,7 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
               {/* Individual criteria (prompts) */}
               {criteriaFields.map((criterion, index) => (
                 <div key={criterion.id} className="flex flex-col gap-1.5">
+                  <EvaluationTypeBadge type="score" />
                   <FormField
                     control={form.control}
                     name={`evaluation.criteria.${index}.prompt`}
@@ -326,23 +421,19 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
             )}
 
             {/* Footer — delete button only shows on update */}
-            <footer
-              className={cn(
-                'flex w-full flex-wrap items-center gap-4 py-4',
-                isUpdate && onDelete ? 'justify-between' : 'justify-end'
-              )}
-            >
-              {isUpdate && onDelete && (
+            <footer className="flex w-full flex-wrap items-center gap-4 pb-4 pt-4">
+              {isDeletable && onDelete && (
                 <Button
                   type="button"
                   variant="destructive"
+                  className="mr-auto"
                   onClick={onDelete}
                   disabled={form.formState.isSubmitting}
                 >
                   Delete persona
                 </Button>
               )}
-              <div className="flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -363,6 +454,19 @@ export function PersonaForm({ initialData, mode, onSubmit, onCancel, onDelete }:
           </div>
         </div>
       </form>
+
+      <EvaluationFormModal
+        open={evalModalOpen}
+        onOpenChange={setEvalModalOpen}
+        onSave={addCriterion}
+      />
+      <FixturePanelModal
+        open={fixturePanelOpen}
+        onOpenChange={setFixturePanelOpen}
+        fixtureId={fixtureId}
+        showMigratedBanner={assignedFixture?.isAutoMigrated}
+        onChangeFixture={(id) => form.setValue('fixtureId', id)}
+      />
     </Form>
   )
 }

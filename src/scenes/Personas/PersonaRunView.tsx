@@ -1,20 +1,38 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { CopyIcon, SettingsIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ChatTestColumnLayout } from '@/components/layout/ChatTestColumnLayout'
 import { personasAtom, selectedPersonaIdAtom, testRunsAtom, personaFormModeAtom } from '@/atoms'
 import { mockInvokeAgent } from '@/services/mockAI'
-import type { Message } from '@/types'
+import { CHECKOUT_CEP_LOOKUP_DEMO } from './demoConversations'
+import { RunMessageList } from './RunMessageList'
+import type { RunEntry } from './runTypes'
 
-interface RunEntry {
-  type: 'user' | 'assistant' | 'callback'
-  text?: string
-  label?: string
+const DEMO_PERSONA_KEY = 'checkout-cep-lookup'
+
+function getDemoEntriesForPersona(personaKey: string, hasPassedRun: boolean): RunEntry[] {
+  if (personaKey === DEMO_PERSONA_KEY && hasPassedRun) {
+    return CHECKOUT_CEP_LOOKUP_DEMO
+  }
+  return []
+}
+
+async function playScriptedRun(
+  script: RunEntry[],
+  setEntries: Dispatch<SetStateAction<RunEntry[]>>
+) {
+  setEntries([])
+  for (const entry of script) {
+    await new Promise((r) => setTimeout(r, entry.type === 'callback' ? 400 : 350))
+    setEntries((prev) => [...prev, entry])
+  }
 }
 
 export function PersonaRunView() {
   const personas = useAtomValue(personasAtom)
   const selectedId = useAtomValue(selectedPersonaIdAtom)
+  const testRuns = useAtomValue(testRunsAtom)
   const setTestRuns = useSetAtom(testRunsAtom)
   const setFormMode = useSetAtom(personaFormModeAtom)
   const [sessionId] = useState(() => `session-${Math.random().toString(36).slice(2, 9)}`)
@@ -23,11 +41,16 @@ export function PersonaRunView() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const persona = personas.find((p) => p.id === selectedId)
+  const run = selectedId ? testRuns[selectedId] : undefined
+  const hasPassedRun = run?.status === 'TEST_RUN_STATUS_PASSED'
 
-  // Reset conversation when persona changes
   useEffect(() => {
-    setEntries([])
-  }, [selectedId])
+    if (!persona) {
+      setEntries([])
+      return
+    }
+    setEntries(getDemoEntriesForPersona(persona.personaKey, hasPassedRun))
+  }, [selectedId, persona?.personaKey, hasPassedRun])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -39,22 +62,18 @@ export function PersonaRunView() {
     setEntries([])
     setTestRuns((prev) => ({ ...prev, [persona.id]: { status: 'TEST_RUN_STATUS_RUNNING' } }))
 
-    const instructions = persona.objectives[0]?.instructions || ''
-    // Simulate a multi-turn conversation
-    const turns = [
-      instructions.slice(0, 80) + (instructions.length > 80 ? '...' : ''),
-    ]
-
     try {
-      for (const turn of turns) {
-        setEntries((prev) => [...prev, { type: 'user', text: turn }])
-        // Simulate callback event
+      if (persona.personaKey === DEMO_PERSONA_KEY) {
+        await playScriptedRun(CHECKOUT_CEP_LOOKUP_DEMO, setEntries)
+      } else {
+        const instructions = persona.objectives[0]?.instructions || ''
+        const turn = instructions.slice(0, 80) + (instructions.length > 80 ? '...' : '')
+        setEntries([{ type: 'user', text: turn }])
         if (Math.random() > 0.5) {
           await new Promise((r) => setTimeout(r, 400))
           setEntries((prev) => [...prev, { type: 'callback', label: 'activity_check' }])
         }
         const reply = await mockInvokeAgent(turn)
-        // Agent replies as multiple short bubbles
         const sentences = reply.match(/[^.!?]+[.!?]+/g) || [reply]
         for (const sentence of sentences.slice(0, 3)) {
           await new Promise((r) => setTimeout(r, 200))
@@ -62,7 +81,7 @@ export function PersonaRunView() {
         }
       }
 
-      const passed = Math.random() > 0.2
+      const passed = persona.personaKey === DEMO_PERSONA_KEY ? true : Math.random() > 0.2
       const evalResults = persona.evaluation.criteria.map((c, i) => ({
         name: `Evaluation ${i + 1}`,
         passed,
@@ -89,104 +108,68 @@ export function PersonaRunView() {
 
   if (!persona) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
+      <div className="flex flex-1 items-center justify-center text-sm text-gray-400">
         Select a persona from the sidebar
       </div>
     )
   }
 
+  const showEmpty = entries.length === 0 && !running
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 flex-shrink-0">
-        <h2 className="font-semibold text-gray-900 text-sm">{persona.personaKey}</h2>
-        <div className="flex items-center gap-2">
+    <ChatTestColumnLayout
+      title={<h2 className="text-base font-semibold text-gray-900">{persona.personaKey}</h2>}
+      actions={
+        <>
           <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-gray-500" onClick={copySession}>
-            <CopyIcon className="w-3.5 h-3.5" />
+            <CopyIcon className="h-3.5 w-3.5" />
             Session ID
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFormMode(persona.id)}>
-            <SettingsIcon className="w-4 h-4 text-gray-500" />
+            <SettingsIcon className="h-4 w-4 text-gray-500" />
           </Button>
           <Button
             size="sm"
-            className="bg-purple-700 hover:bg-purple-800 h-7 text-xs"
+            className="h-7 bg-purple-700 text-xs hover:bg-purple-800"
             onClick={runPersona}
             disabled={running}
           >
             {running ? 'Running…' : 'Test'}
           </Button>
-        </div>
-      </div>
-
-      {/* Conversation */}
-      <div className="flex-1 overflow-auto px-16 py-8">
-        {entries.length === 0 && !running && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
-                <rect x="3" y="11" width="18" height="10" rx="2"/>
-                <path d="M12 11V7"/>
-                <path d="M8 7h8"/>
-                <circle cx="9" cy="15" r="1" fill="currentColor" stroke="none"/>
-                <circle cx="15" cy="15" r="1" fill="currentColor" stroke="none"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-700">No test results yet</p>
-              <p className="text-xs text-gray-400 mt-1 max-w-xs">test your persona to see a simulated conversation and get performance feedback.</p>
-            </div>
+        </>
+      }
+    >
+      {showEmpty ? (
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-gray-400"
+            >
+              <rect x="3" y="11" width="18" height="10" rx="2" />
+              <path d="M12 11V7" />
+              <path d="M8 7h8" />
+              <circle cx="9" cy="15" r="1" fill="currentColor" stroke="none" />
+              <circle cx="15" cy="15" r="1" fill="currentColor" stroke="none" />
+            </svg>
           </div>
-        )}
-        <div className="flex flex-col gap-3 max-w-2xl mx-auto">
-          {entries.map((entry, i) => {
-            if (entry.type === 'callback') {
-              return (
-                <div key={i} className="flex justify-center">
-                  <span className="text-[10px] text-gray-400 bg-gray-100 rounded-full px-3 py-1">
-                    Callback Timeout · 900s · {entry.label}
-                  </span>
-                </div>
-              )
-            }
-            if (entry.type === 'user') {
-              return (
-                <div key={i} className="flex justify-end">
-                  <div className="max-w-[65%] bg-green-100 text-gray-800 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed">
-                    {entry.text}
-                  </div>
-                </div>
-              )
-            }
-            return (
-              <div key={i} className="flex justify-start">
-                <div className="max-w-[65%] bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed shadow-sm">
-                  {entry.text}
-                </div>
-              </div>
-            )
-          })}
-          {running && (
-            <div className="flex justify-start">
-              <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                <span className="inline-flex gap-1">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce"
-                      style={{ animationDelay: `${i * 150}ms` }}
-                    />
-                  ))}
-                </span>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+          <div>
+            <p className="text-sm font-medium text-gray-700">No test results yet</p>
+            <p className="mt-1 max-w-sm text-xs text-gray-400">
+              Test your persona to see a simulated conversation and get performance feedback.
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
+      ) : (
+        <RunMessageList entries={entries} running={running} messagesEndRef={messagesEndRef} />
+      )}
+    </ChatTestColumnLayout>
   )
 }
-
-// Suppress unused import warning
-void (null as unknown as Message)

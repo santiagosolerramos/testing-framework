@@ -1,0 +1,1 @@
+export const SANDBOX_PRODUCT_REC_FIXTURE_ID = 'product_recommendation_default'

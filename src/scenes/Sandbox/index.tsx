@@ -8,6 +8,9 @@ import {
   TrashIcon,
   CopyIcon,
   SquarePenIcon,
+  UserPlusIcon,
+  Loader2Icon,
+  SparklesIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,12 +31,22 @@ import {
   sandboxConversationsAtom,
   selectedSandboxSessionIdAtom,
   sandboxDeleteTargetAtom,
+  sandboxReviewPersonaIdAtom,
+  personasAtom,
   deployedVersionAtom,
   runningVersionAtom,
 } from '@/atoms'
 import { mockInvokeAgent } from '@/services/mockAI'
+import { createDraftFromSandboxSession } from '@/services/sandboxPersonaCreation'
+import { wizardDraftToFormData } from '@/types/personaCreation'
+import {
+  isSandboxExampleSession,
+  SANDBOX_EXAMPLE_LABEL,
+  SANDBOX_EXAMPLE_SESSION_ID,
+} from './sandboxExampleSession'
+import { SandboxPersonaReviewOverlay } from './SandboxPersonaReviewOverlay'
 import { cn } from '@/lib/utils'
-import type { Message } from '@/types'
+import type { Message, Persona } from '@/types'
 
 // ─── Chat message bubble ──────────────────────────────────────────────────────
 function ChatMessage({ message }: { message: Message }) {
@@ -62,12 +75,23 @@ type ConversationItemProps = {
   id: string
   label: string
   isActive: boolean
+  allowDelete?: boolean
+  isExample?: boolean
   onSelect: (id: string) => void
   onCopy: (id: string) => void
   onDelete: (id: string) => void
 }
 
-function ConversationItem({ id, label, isActive, onSelect, onCopy, onDelete }: ConversationItemProps) {
+function ConversationItem({
+  id,
+  label,
+  isActive,
+  allowDelete = true,
+  isExample = false,
+  onSelect,
+  onCopy,
+  onDelete,
+}: ConversationItemProps) {
   const handleSelect = useCallback(() => onSelect(id), [onSelect, id])
   const handleStop = useCallback((e: React.MouseEvent) => e.stopPropagation(), [])
   const handleCopy = useCallback(() => onCopy(id), [onCopy, id])
@@ -86,7 +110,10 @@ function ConversationItem({ id, label, isActive, onSelect, onCopy, onDelete }: C
           className="flex items-center gap-2 flex-1 min-w-0 text-left"
           onClick={handleSelect}
         >
-          <div className="text-sm truncate text-gray-700">{label}</div>
+          <div className="flex min-w-0 items-center gap-1.5">
+            {isExample && <SparklesIcon className="h-3.5 w-3.5 shrink-0 text-purple-600" />}
+            <span className="truncate text-sm text-gray-700">{label}</span>
+          </div>
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -104,13 +131,15 @@ function ConversationItem({ id, label, isActive, onSelect, onCopy, onDelete }: C
               <CopyIcon className="mr-2 h-4 w-4" />
               Copy session ID
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer text-red-600 focus:text-red-600"
-              onClick={handleDelete}
-            >
-              <TrashIcon className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+            {allowDelete && (
+              <DropdownMenuItem
+                className="cursor-pointer text-red-600 focus:text-red-600"
+                onClick={handleDelete}
+              >
+                <TrashIcon className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -140,7 +169,12 @@ export function SandboxSidebar() {
     }
   }, [selectedSessionId, conversations, setSelectedSessionId])
 
-  const entries = useMemo(() => Object.entries(conversations).reverse(), [conversations])
+  const entries = useMemo(() => {
+    const all = Object.entries(conversations)
+    const example = all.find(([id]) => isSandboxExampleSession(id))
+    const rest = all.filter(([id]) => !isSandboxExampleSession(id)).reverse()
+    return example ? [example, ...rest] : rest
+  }, [conversations])
 
   const handleCopy = useCallback((id: string) => {
     navigator.clipboard.writeText(id).catch(() => {})
@@ -166,7 +200,9 @@ export function SandboxSidebar() {
         )}
         {entries.map(([id, conv]) => {
           const last = conv.messages.slice(-1)[0]
-          const label = last?.text?.slice(0, 40) || 'Start chatting'
+          const label = isSandboxExampleSession(id)
+            ? SANDBOX_EXAMPLE_LABEL
+            : last?.text?.slice(0, 40) || 'Start chatting'
           return (
             <ConversationItem
               key={id}
@@ -175,6 +211,8 @@ export function SandboxSidebar() {
               isActive={id === selectedSessionId}
               onSelect={setSelectedSessionId}
               onCopy={handleCopy}
+              allowDelete={!isSandboxExampleSession(id)}
+              isExample={isSandboxExampleSession(id)}
               onDelete={setDeleteTarget}
             />
           )
@@ -189,6 +227,8 @@ export function SandboxContent() {
   const [conversations, setConversations] = useAtom(sandboxConversationsAtom)
   const [selectedSessionId, setSelectedSessionId] = useAtom(selectedSandboxSessionIdAtom)
   const [deleteTarget, setDeleteTarget] = useAtom(sandboxDeleteTargetAtom)
+  const setPersonas = useSetAtom(personasAtom)
+  const setReviewPersonaId = useSetAtom(sandboxReviewPersonaIdAtom)
   const deployedVersion = useAtomValue(deployedVersionAtom)
   const runningVersion = useAtomValue(runningVersionAtom)
 
@@ -197,6 +237,8 @@ export function SandboxContent() {
   const [composer, setComposer] = useState('')
   const [thinkingBySession, setThinkingBySession] = useState<Record<string, boolean>>({})
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCreatingPersona, setIsCreatingPersona] = useState(false)
+  const [createPersonaError, setCreatePersonaError] = useState<string | null>(null)
 
   const messages = useMemo<Message[]>(() => {
     if (!selectedSessionId) return []
@@ -289,7 +331,7 @@ export function SandboxContent() {
   }, [])
 
   const confirmDelete = useCallback(async () => {
-    if (!deleteTarget) return
+    if (!deleteTarget || isSandboxExampleSession(deleteTarget)) return
     setIsDeleting(true)
     try {
       setConversations((prev) => {
@@ -314,24 +356,95 @@ export function SandboxContent() {
     if (selectedSessionId) navigator.clipboard.writeText(selectedSessionId).catch(() => {})
   }, [selectedSessionId])
 
+  const handleCreatePersonaFromSession = useCallback(async () => {
+    if (!selectedSessionId || messages.length === 0 || isCreatingPersona) return
+    setIsCreatingPersona(true)
+    setCreatePersonaError(null)
+    try {
+      const { draft, error } = await createDraftFromSandboxSession(
+        selectedSessionId,
+        conversations
+      )
+      if (error || !draft) {
+        setCreatePersonaError(error || 'Could not create persona from this session.')
+        return
+      }
+      const id = ulid()
+      const newPersona: Persona = {
+        id,
+        ...wizardDraftToFormData(draft),
+        status: 'draft',
+        createdAt: Date.now(),
+      }
+      setPersonas((prev) => [...prev, newPersona])
+      setReviewPersonaId(id)
+    } finally {
+      setIsCreatingPersona(false)
+    }
+  }, [selectedSessionId, messages.length, isCreatingPersona, conversations, setPersonas, setReviewPersonaId])
+
+  const handleSelectExample = useCallback(() => {
+    setSelectedSessionId(SANDBOX_EXAMPLE_SESSION_ID)
+  }, [setSelectedSessionId])
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full h-full overflow-x-clip bg-white">
+    <div className="relative flex flex-col flex-1 min-h-0 w-full h-full overflow-x-clip bg-white">
       {/* ── Header ── */}
       <div className="flex items-center border-b border-gray-200 px-6 bg-white sticky top-0 z-[5] h-16 flex-shrink-0">
         <span className="font-semibold text-base text-foreground flex-1">Chat</span>
-        {selectedSessionId && (
-          <Button variant="ghost" size="sm" className="gap-1.5 text-gray-500" onClick={handleCopySession}>
-            <CopyIcon className="w-4 h-4" />
-            Copy Session ID
+        <div className="flex items-center gap-2">
+          {selectedSessionId && messages.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-purple-200 text-purple-700"
+              disabled={isCreatingPersona}
+              onClick={handleCreatePersonaFromSession}
+            >
+              {isCreatingPersona ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlusIcon className="h-4 w-4" />
+              )}
+              Create persona from session
+            </Button>
+          )}
+          {selectedSessionId && (
+            <Button variant="ghost" size="sm" className="gap-1.5 text-gray-500" onClick={handleCopySession}>
+              <CopyIcon className="w-4 h-4" />
+              Copy Session ID
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Version banner (green = deployed) ── */}
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-4 border-b border-green-200 bg-green-50 px-4 py-2">
+        <span className="text-sm font-medium text-green-800">Running: {runningVersion}</span>
+        <span className="text-sm text-green-600">Deployed: {deployedVersion}</span>
+        <span className="text-xs text-green-700">
+          Sandbox MVP: product recommendation only · fixture{' '}
+          <code className="rounded bg-green-100 px-1">product_recommendation_default</code>
+        </span>
+        {!isSandboxExampleSession(selectedSessionId || '') && (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="ml-auto h-auto gap-1 p-0 text-green-800"
+            onClick={handleSelectExample}
+          >
+            <SparklesIcon className="h-3.5 w-3.5" />
+            Open example conversation
           </Button>
         )}
       </div>
 
-      {/* ── Version banner (green = deployed) ── */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-green-50 border-b border-green-200 flex-shrink-0">
-        <span className="text-sm text-green-800 font-medium">Running: {runningVersion}</span>
-        <span className="text-sm text-green-600">Deployed: {deployedVersion}</span>
-      </div>
+      {createPersonaError && (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {createPersonaError}
+        </div>
+      )}
 
       {/* ── Messages — opacity-0 when empty ── */}
       <div
@@ -403,6 +516,16 @@ export function SandboxContent() {
           </div>
         </div>
       </div>
+
+      {isCreatingPersona && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/90 backdrop-blur-sm">
+          <Loader2Icon className="h-10 w-10 animate-spin text-purple-700" />
+          <p className="text-sm font-medium text-gray-800">Creating persona from session…</p>
+          <p className="text-xs text-gray-500">Extracting goal, evaluations, and product rec fixture</p>
+        </div>
+      )}
+
+      <SandboxPersonaReviewOverlay />
 
       {/* ── Delete dialog ── */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
