@@ -17,9 +17,19 @@ import {
 } from '@/services/fixtureMatching'
 import { turnsToTranscript } from '@/services/parseTranscript'
 import {
+  buildCriteriaFromCatalog,
+  buildGoalCompletionCriterion,
+} from '@/services/evaluationCatalog'
+import { suggestCatalogEvalIds } from '@/services/evaluationSelection'
+import {
   buildStepByStepInstructions,
   inferConversationEndGoal,
 } from '@/services/conversationPersonaExtract'
+import {
+  buildStepByStepFromDescription,
+  inferDescriptionEndGoal,
+} from '@/services/descriptionPersonaExtract'
+import { CHECKOUT_DEMO_DESCRIPTION } from '@/scenes/Personas/creation/constants'
 
 function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
@@ -65,19 +75,12 @@ function detectTransactionalMismatch(text: string, sop: SopHint): boolean {
   return TRANSACTIONAL_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
-function buildGoalCompletionEval(goal: string) {
-  return {
-    id: ulid(),
-    prompt: `Output 1 if the assistant accomplishes the goal: "${goal.slice(0, 160)}", otherwise 0.`,
-  }
-}
-
 export function buildCriteriaFromToggles(
   goal: string,
   toggles: EvalToggles,
   turns?: ParsedConversationTurn[]
 ): PersonaWizardDraft['criteria'] {
-  const criteria = [buildGoalCompletionEval(goal)]
+  const criteria = [buildGoalCompletionCriterion(goal)]
 
   if (toggles.kbGrounding) {
     criteria.push({
@@ -150,16 +153,20 @@ export async function generatePersonaFromDescription(
   const requiredCapabilities = inferRequiredCapabilities(input.description, resolvedSop)
   const maxTurns = SOP_MAX_TURNS[resolvedSop === 'auto' ? 'faq' : resolvedSop] ?? 10
 
-  const goal =
-    resolvedSop === 'handover'
-      ? 'The assistant escalates to a human agent after collecting required information.'
-      : resolvedSop === 'checkout'
-        ? 'The assistant completes checkout validation including CEP when requested.'
-        : resolvedSop === 'orderStatus'
-          ? 'The assistant resolves the order status request accurately.'
-          : 'The assistant answers the customer question using the knowledge base.'
+  const goal = inferDescriptionEndGoal(input.description, input.language, resolvedSop)
 
-  const profile = `You are simulating a customer (${input.language}).\n\nScenario:\n${input.description}\n\nBehave naturally. Provide requested data when the bot asks.`
+  const profile = buildStepByStepFromDescription(
+    input.description,
+    input.language,
+    resolvedSop
+  )
+
+  const isCheckoutDemo =
+    input.sopHints.includes('checkout') &&
+    input.description.trim() === CHECKOUT_DEMO_DESCRIPTION.trim()
+  const personaKey = isCheckoutDemo
+    ? 'checkout_demo_cep_pix'
+    : slugify(input.description.slice(0, 40))
 
   const parsedIntent: ParsedIntent = {
     text: input.description,
@@ -177,11 +184,16 @@ export async function generatePersonaFromDescription(
         : null
 
   const toggles = defaultTogglesForSop(resolvedSop)
-  const criteria = buildCriteriaFromToggles(goal, toggles)
+  const selectedCatalogEvalIds = suggestCatalogEvalIds({
+    description: input.description,
+    resolvedSop,
+    sopHints: input.sopHints,
+  })
+  const criteria = buildCriteriaFromCatalog(goal, selectedCatalogEvalIds)
   const review = buildFixtureReviewSummary(selectedFixtureId, requiredCapabilities)
 
   const draft: PersonaWizardDraft = {
-    personaKey: slugify(input.description.slice(0, 40)),
+    personaKey,
     description: input.description,
     profile,
     goal,
@@ -191,6 +203,8 @@ export async function generatePersonaFromDescription(
     detectedEntities: entities,
     maxTurns,
     criteria,
+    selectedCatalogEvalIds,
+    evalCatchAll: '',
     evalToggles: toggles,
     fixtureMatch,
     selectedFixtureId,
@@ -261,6 +275,8 @@ export async function generatePersonaFromConversation(input: {
     detectedEntities: entities,
     maxTurns: SOP_MAX_TURNS[resolvedSop === 'auto' ? 'faq' : resolvedSop] ?? 10,
     criteria,
+    selectedCatalogEvalIds: [],
+    evalCatchAll: '',
     evalToggles: toggles,
     fixtureMatch,
     selectedFixtureId: strictFaqHandover ? selectedFixtureId ?? 'faq_default' : selectedFixtureId,
@@ -298,14 +314,22 @@ export function finalizeDraftWithFixture(
 
 export function finalizeDraftWithEvaluations(
   draft: PersonaWizardDraft,
-  toggles: EvalToggles,
-  isSmokeTest: boolean
+  selectedCatalogEvalIds: string[],
+  customEvalPrompts: string[],
+  isSmokeTest: boolean,
+  catalogPromptOverrides?: Record<string, string>
 ): PersonaWizardDraft {
-  const criteria = buildCriteriaFromToggles(
+  let criteria = buildCriteriaFromCatalog(
     draft.goal,
-    toggles,
-    draft.conversationTurns
+    selectedCatalogEvalIds,
+    catalogPromptOverrides,
+    customEvalPrompts
   )
+  if (draft.conversationTurns?.length) {
+    const thumbCriteria = buildCriteriaFromToggles(draft.goal, draft.evalToggles, draft.conversationTurns)
+    const extra = thumbCriteria.slice(1)
+    criteria = [...criteria, ...extra]
+  }
   const firstUser =
     draft.conversationTurns?.find((t) => t.role === 'user')?.text ||
     draft.description.split(/[.!?]/)[0]?.trim() ||
@@ -313,7 +337,8 @@ export function finalizeDraftWithEvaluations(
 
   return {
     ...draft,
-    evalToggles: toggles,
+    selectedCatalogEvalIds,
+    evalCatchAll: '',
     criteria,
     isSmokeTest,
     presetMessages: isSmokeTest ? firstUser : draft.presetMessages,

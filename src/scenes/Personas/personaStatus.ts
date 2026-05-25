@@ -1,5 +1,5 @@
 import { ulid } from 'ulid'
-import type { Persona, PersonaStatus } from '@/types'
+import type { Persona, PersonaFormData, PersonaStatus } from '@/types'
 
 /** Mock gate: consecutive manual test passes before promotion is recommended (no auto-promote in MVP). */
 export const REQUIRED_VALIDATION_PASSES = 3
@@ -80,4 +80,15 @@ export function promoteAllReadyDrafts(personas: Persona[]): Persona[] {
 
 export function countReadyToPromote(personas: Persona[]): number {
   return personas.filter(isReadyToPromote).length
+}
+
+/** MVP: any saved edit demotes to Draft and resets validation. */
+export function applyPersonaFormSave(persona: Persona, data: PersonaFormData): Persona {
+  return {
+    ...persona,
+    ...data,
+    sectionId: data.sectionId ?? undefined,
+    status: 'draft',
+    validationPasses: 0,
+  }
 }

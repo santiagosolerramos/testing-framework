@@ -71,6 +71,8 @@ export async function createDraftFromSandboxSession(
     detectedEntities: [],
     maxTurns: 8,
     criteria,
+    selectedCatalogEvalIds: [],
+    evalCatchAll: '',
     evalToggles: toggles,
     fixtureMatch: { kind: 'none', requiredCapabilities: [] },
     selectedFixtureId: fixtureId,

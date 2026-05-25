@@ -10,6 +10,7 @@ import {
   generatePersonaFromDescription,
 } from '@/services/personaGeneration'
 import {
+  CHECKOUT_DEMO_DESCRIPTION,
   DESCRIPTION_MAX_LENGTH,
   DESCRIPTION_PLACEHOLDER,
   LANGUAGES,
@@ -45,9 +46,18 @@ export function DescriptionWizard({ onClose }: Props) {
   const [pendingDraft, setPendingDraft] = useState<PersonaWizardDraft | null>(null)
 
   const toggleHint = (id: Exclude<SopHint, 'auto'>) => {
+    const adding = !sopHints.includes(id)
     setSopHints((prev) =>
       prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]
     )
+    if (id === 'checkout' && adding) {
+      setLanguage('pt-BR')
+      setDescription((prev) =>
+        !prev.trim() || prev.trim() === CHECKOUT_DEMO_DESCRIPTION.trim()
+          ? CHECKOUT_DEMO_DESCRIPTION
+          : prev
+      )
+    }
   }
 
   const needsFixtureStep = (d: PersonaWizardDraft) =>
@@ -81,11 +91,11 @@ export function DescriptionWizard({ onClose }: Props) {
 
   if (step === 'generating') {
     return (
-      <WizardShell title="Matching your scenario" stepLabel="Step 2 of 4" onClose={onClose}>
+      <WizardShell title="Building your persona" stepLabel="Step 2 of 4" onClose={onClose}>
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <Loader2Icon className="h-10 w-10 animate-spin text-purple-700" />
           <p className="text-sm text-gray-600">
-            Parsing intent and matching against the fixture library…
+            Parsing intent, matching fixtures, and selecting evaluations for your flow…
           </p>
           <p className="text-xs text-gray-400">Usually 3–5 seconds</p>
         </div>
@@ -131,8 +141,16 @@ export function DescriptionWizard({ onClose }: Props) {
         draft={draft}
         onBack={() => (needsFixtureStep(draft) ? setStep('fixtures') : setStep('describe'))}
         onClose={onClose}
-        onContinue={(toggles, isSmokeTest) => {
-          setDraft(finalizeDraftWithEvaluations(draft, toggles, isSmokeTest))
+        onContinue={(selectedCatalogIds, customPrompts, customEvalPrompts, isSmokeTest) => {
+          setDraft(
+            finalizeDraftWithEvaluations(
+              draft,
+              selectedCatalogIds,
+              customEvalPrompts,
+              isSmokeTest,
+              customPrompts
+            )
+          )
           setStep('review')
         }}
       />

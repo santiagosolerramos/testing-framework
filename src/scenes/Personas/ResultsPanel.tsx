@@ -3,8 +3,7 @@ import { CheckCircle2Icon, ChevronDownIcon, ChevronUpIcon, XCircleIcon } from 'l
 import { useState } from 'react'
 import { personasAtom, selectedPersonaIdAtom, testRunsAtom } from '@/atoms'
 import { cn } from '@/lib/utils'
-import { PersonaStatusBadge } from './PersonaStatusBadge'
-import { getPersonaStatus } from './personaStatus'
+import { PersonaLifecycleStatus } from './PersonaLifecycleStatus'
 
 function parseNumberedObjectives(instructions: string): string[] {
   const lines = instructions.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -40,9 +39,9 @@ export function ResultsPanel() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex h-16 w-full flex-shrink-0 items-center justify-between border-b border-gray-200 px-6">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <h2 className="text-base font-semibold text-gray-900">Results</h2>
-          <PersonaStatusBadge status={getPersonaStatus(persona)} />
+          <PersonaLifecycleStatus persona={persona} />
         </div>
         {run && run.status !== 'TEST_RUN_STATUS_RUNNING' && (
           <span

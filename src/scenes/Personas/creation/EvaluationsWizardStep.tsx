@@ -1,57 +1,164 @@
-import { useState } from 'react'
-import type { EvalToggles, PersonaWizardDraft } from '@/types/personaCreation'
+import { useMemo, useState } from 'react'
+import { PlusIcon, XIcon } from 'lucide-react'
+import type { PersonaWizardDraft } from '@/types/personaCreation'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { WizardShell } from './WizardShell'
-import { cn } from '@/lib/utils'
+import {
+  buildPromptForEntry,
+  getCatalogEntriesForSop,
+  getCatalogEntryById,
+  getSopDisplayLabel,
+  wrapCustomEvalPrompt,
+  type CatalogEvalEntry,
+} from '@/services/evaluationCatalog'
+import { suggestCatalogEvalIds } from '@/services/evaluationSelection'
 
 type Props = {
   draft: PersonaWizardDraft
   onBack: () => void
   onClose: () => void
-  onContinue: (toggles: EvalToggles, isSmokeTest: boolean) => void
+  onContinue: (
+    selectedCatalogIds: string[],
+    customPrompts: Record<string, string>,
+    customEvalDescriptions: string[],
+    isSmokeTest: boolean
+  ) => void
 }
 
-function ToggleRow({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
+type CatalogLine = {
+  catalogId: string
   label: string
   description: string
-  checked: boolean
-  onChange: (v: boolean) => void
+  prompt: string
+}
+
+type CustomLine = {
+  id: string
+  label: string
+  checkDescription: string
+  prompt: string
+}
+
+function entryToLine(entry: CatalogEvalEntry, goal: string): CatalogLine {
+  return {
+    catalogId: entry.id,
+    label: entry.label,
+    description: entry.description,
+    prompt: buildPromptForEntry(entry, goal),
+  }
+}
+
+function EvalCard({
+  title,
+  description,
+  prompt,
+  onPromptChange,
+  onRemove,
+  canRemove,
+  promptLabel = 'Evaluation prompt',
+}: {
+  title: string
+  description: string
+  prompt: string
+  onPromptChange: (prompt: string) => void
+  onRemove: () => void
+  canRemove: boolean
+  promptLabel?: string
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
-      <input
-        type="checkbox"
-        className="mt-1"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <div>
-        <p className="text-sm font-medium text-gray-900">{label}</p>
-        <p className="text-xs text-gray-500">{description}</p>
+    <div className="rounded-lg border border-purple-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-900">{title}</p>
+          <p className="mt-0.5 text-xs text-gray-500">{description}</p>
+        </div>
+        {canRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-gray-400 hover:text-gray-700"
+            onClick={onRemove}
+            aria-label={`Remove ${title}`}
+          >
+            <XIcon className="h-4 w-4" />
+          </Button>
+        )}
       </div>
-    </label>
+      <div className="mt-3">
+        <Label className="text-xs text-gray-500">{promptLabel}</Label>
+        <Textarea
+          className="mt-1 min-h-[72px] font-mono text-xs"
+          value={prompt}
+          onChange={(e) => onPromptChange(e.target.value)}
+        />
+      </div>
+    </div>
   )
 }
 
 export function EvaluationsWizardStep({ draft, onBack, onClose, onContinue }: Props) {
-  const [toggles, setToggles] = useState<EvalToggles>(draft.evalToggles)
-  const [isSmokeTest, setIsSmokeTest] = useState(draft.isSmokeTest)
+  const suggestedIds = useMemo(
+    () =>
+      draft.selectedCatalogEvalIds.length > 0
+        ? draft.selectedCatalogEvalIds
+        : suggestCatalogEvalIds({
+            description: draft.description,
+            resolvedSop: draft.resolvedSop,
+            sopHints: draft.sopHints,
+          }),
+    [draft]
+  )
 
-  const setToggle = (key: keyof EvalToggles, value: boolean | string) => {
-    setToggles((t) => ({ ...t, [key]: value }))
+  const catalogPool = useMemo(
+    () => getCatalogEntriesForSop(draft.resolvedSop === 'auto' ? 'faq' : draft.resolvedSop),
+    [draft.resolvedSop]
+  )
+
+  const [catalogLines, setCatalogLines] = useState<CatalogLine[]>(() =>
+    suggestedIds
+      .map((id) => getCatalogEntryById(id))
+      .filter((e): e is CatalogEvalEntry => !!e)
+      .map((e) => entryToLine(e, draft.goal))
+  )
+
+  const [customLines, setCustomLines] = useState<CustomLine[]>(() => {
+    if (!draft.evalCatchAll.trim()) return []
+    return [
+      {
+        id: 'custom-initial',
+        label: 'Custom check',
+        checkDescription: draft.evalCatchAll,
+        prompt: wrapCustomEvalPrompt(draft.evalCatchAll),
+      },
+    ]
+  })
+
+  const [addCatalogOpen, setAddCatalogOpen] = useState(false)
+  const [addingCustom, setAddingCustom] = useState(false)
+  const [customDraft, setCustomDraft] = useState({ label: '', checkDescription: '' })
+
+  const usedCatalogIds = new Set(catalogLines.map((l) => l.catalogId))
+  const addableFromCatalog = catalogPool.filter((e) => !usedCatalogIds.has(e.id))
+
+  const sopLabel = getSopDisplayLabel(draft.resolvedSop)
+
+  const totalEvals = catalogLines.length + customLines.length
+
+  const handleContinue = () => {
+    const ids = catalogLines.map((l) => l.catalogId)
+    const customPrompts = Object.fromEntries(catalogLines.map((l) => [l.catalogId, l.prompt]))
+    const customEvalDescriptions = customLines.map((l) => l.prompt)
+    onContinue(ids, customPrompts, customEvalDescriptions, false)
   }
 
   return (
     <WizardShell
       title="Evaluations"
-      subtitle="Goal completion is always included. Add optional checks below."
+      subtitle={`Recommended for ${sopLabel}. These checks are specific to this flow — edit prompts or add more below.`}
       stepLabel="Step 3 of 4"
       onClose={onClose}
       footer={
@@ -59,73 +166,170 @@ export function EvaluationsWizardStep({ draft, onBack, onClose, onContinue }: Pr
           <Button type="button" variant="ghost" onClick={onBack}>
             Back
           </Button>
-          <Button type="button" onClick={() => onContinue(toggles, isSmokeTest)}>
+          <Button type="button" onClick={handleContinue} disabled={totalEvals === 0}>
             Continue to review →
           </Button>
         </div>
       }
     >
-      <div className="space-y-4">
-        <div className="rounded-lg border border-purple-100 bg-purple-50/50 p-3 text-sm text-purple-900">
-          <p className="font-medium">Goal completion (always on)</p>
-          <p className="mt-1 text-purple-800/90">
-            Did the bot accomplish: &ldquo;{draft.goal.slice(0, 120)}
-            {draft.goal.length > 120 ? '…' : ''}&rdquo;
-          </p>
-        </div>
+      <div className="space-y-5">
+        <p className="text-sm text-gray-600">
+          <span className="font-medium text-gray-900">{totalEvals} evaluation</span>
+          {totalEvals === 1 ? '' : 's'} for <span className="font-medium">{sopLabel}</span>.
+          Goal completion is added automatically when tests run.
+        </p>
 
-        <ToggleRow
-          label="KB grounding"
-          description="Bot's answer is grounded in the KB, not invented (FAQ)"
-          checked={toggles.kbGrounding}
-          onChange={(v) => setToggle('kbGrounding', v)}
-        />
-        <ToggleRow
-          label="Handover quality"
-          description="Bot collected required info before escalating"
-          checked={toggles.handoverQuality}
-          onChange={(v) => setToggle('handoverQuality', v)}
-        />
-        <ToggleRow
-          label="Tone / language"
-          description="Bot responds in PT-BR and maintains professional tone"
-          checked={toggles.toneLanguage}
-          onChange={(v) => setToggle('toneLanguage', v)}
-        />
+        <div className="space-y-3">
+          {catalogLines.map((line) => (
+            <EvalCard
+              key={line.catalogId}
+              title={line.label}
+              description={line.description}
+              prompt={line.prompt}
+              canRemove={totalEvals > 1}
+              onPromptChange={(p) =>
+                setCatalogLines((prev) =>
+                  prev.map((l) => (l.catalogId === line.catalogId ? { ...l, prompt: p } : l))
+                )
+              }
+              onRemove={() =>
+                setCatalogLines((prev) => prev.filter((l) => l.catalogId !== line.catalogId))
+              }
+            />
+          ))}
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="catch-all">Anything else you want to evaluate?</Label>
-          <Textarea
-            id="catch-all"
-            rows={3}
-            placeholder="e.g. Bot must mention return policy within 2 turns"
-            value={toggles.catchAll}
-            onChange={(e) => setToggle('catchAll', e.target.value)}
-          />
-          <p className="text-xs text-gray-500">
-            Free text — converted to a structured eval prompt when you save.
-          </p>
-        </div>
+          {customLines.map((line) => (
+            <EvalCard
+              key={line.id}
+              title={line.label}
+              description={line.checkDescription}
+              prompt={line.prompt}
+              promptLabel="Evaluation prompt (auto-generated from your check)"
+              canRemove={totalEvals > 1}
+              onPromptChange={(p) =>
+                setCustomLines((prev) =>
+                  prev.map((l) => (l.id === line.id ? { ...l, prompt: p } : l))
+                )
+              }
+              onRemove={() => setCustomLines((prev) => prev.filter((l) => l.id !== line.id))}
+            />
+          ))}
 
-        <label
-          className={cn(
-            'flex cursor-pointer items-center gap-3 rounded-lg border p-3',
-            isSmokeTest ? 'border-purple-300 bg-purple-50' : 'border-gray-200'
+          {addingCustom && (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/80 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-900">Custom evaluation</p>
+              <div>
+                <Label className="text-xs text-gray-500">Short name (optional)</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="e.g. Return policy mentioned"
+                  value={customDraft.label}
+                  onChange={(e) => setCustomDraft((d) => ({ ...d, label: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">What should we validate?</Label>
+                <Textarea
+                  className="mt-1"
+                  rows={3}
+                  placeholder="e.g. Bot must mention return policy within 2 turns"
+                  value={customDraft.checkDescription}
+                  onChange={(e) =>
+                    setCustomDraft((d) => ({ ...d, checkDescription: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!customDraft.checkDescription.trim()}
+                  onClick={() => {
+                    const desc = customDraft.checkDescription.trim()
+                    setCustomLines((prev) => [
+                      ...prev,
+                      {
+                        id: `custom-${Date.now()}`,
+                        label: customDraft.label.trim() || 'Custom check',
+                        checkDescription: desc,
+                        prompt: wrapCustomEvalPrompt(desc),
+                      },
+                    ])
+                    setCustomDraft({ label: '', checkDescription: '' })
+                    setAddingCustom(false)
+                  }}
+                >
+                  Add evaluation
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setAddingCustom(false)
+                    setCustomDraft({ label: '', checkDescription: '' })
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
           )}
-        >
-          <input
-            type="checkbox"
-            checked={isSmokeTest}
-            onChange={(e) => setIsSmokeTest(e.target.checked)}
-          />
-          <div>
-            <p className="text-sm font-medium text-gray-900">Smoke-test persona</p>
-            <p className="text-xs text-gray-500">
-              Auto-fills preset messages from the first user message (required for deterministic
-              smoke runs).
-            </p>
-          </div>
-        </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+          {addableFromCatalog.length > 0 && (
+            <div className="relative">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  setAddCatalogOpen((v) => !v)
+                  setAddingCustom(false)
+                }}
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add from {sopLabel} catalog
+              </Button>
+              {addCatalogOpen && (
+                <div className="absolute left-0 top-full z-10 mt-1 w-full min-w-[280px] max-w-md rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                  {addableFromCatalog.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-gray-50"
+                      onClick={() => {
+                        setCatalogLines((prev) => [...prev, entryToLine(entry, draft.goal)])
+                        setAddCatalogOpen(false)
+                      }}
+                    >
+                      <span className="font-medium text-gray-900">{entry.label}</span>
+                      <span className="text-xs text-gray-500">{entry.description}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!addingCustom && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setAddingCustom(true)
+                setAddCatalogOpen(false)
+              }}
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add custom evaluation
+            </Button>
+          )}
+        </div>
       </div>
     </WizardShell>
   )

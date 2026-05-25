@@ -8,7 +8,7 @@ import { personasAtom, selectedPersonaIdAtom, testRunsAtom, personaFormModeAtom 
 import { mockInvokeAgent } from '@/services/mockAI'
 import { CHECKOUT_CEP_LOOKUP_DEMO } from './demoConversations'
 import { RunMessageList } from './RunMessageList'
-import { PersonaStatusBadge } from './PersonaStatusBadge'
+import { PersonaLifecycleStatus } from './PersonaLifecycleStatus'
 import { PromotePersonaDialog } from './PromotePersonaDialog'
 import { ValidationProgressBadge } from './ValidationProgressBadge'
 import {
@@ -146,9 +146,9 @@ export function PersonaRunView() {
   <>
     <ChatTestColumnLayout
       title={
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
           <h2 className="truncate text-base font-semibold text-gray-900">{persona.personaKey}</h2>
-          <PersonaStatusBadge status={personaStatus} />
+          <PersonaLifecycleStatus persona={persona} />
         </div>
       }
       actions={
@@ -186,7 +186,13 @@ export function PersonaRunView() {
             <CopyIcon className="h-3.5 w-3.5" />
             Session ID
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFormMode(persona.id)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Update persona"
+            onClick={() => setFormMode(persona.id)}
+          >
             <SettingsIcon className="h-4 w-4 text-gray-500" />
           </Button>
           <Button
@@ -210,13 +216,16 @@ export function PersonaRunView() {
           )}
         >
           <div>
-            <p className="font-medium">Draft validation</p>
+            <p className="font-medium">Validating</p>
             <p className="mt-0.5 text-xs opacity-90">
-              Run <strong>Test</strong> until you reach {REQUIRED_VALIDATION_PASSES} consecutive
-              passes, then <strong>Promote to Active</strong>. Failed runs reset the counter.
+              <strong>
+                {validationPasses}/{REQUIRED_VALIDATION_PASSES} pasadas consecutivas
+              </strong>
+              . Run <strong>Test</strong> until you reach {REQUIRED_VALIDATION_PASSES}, then{' '}
+              <strong>Promote to Active</strong>. A failed run resets the counter.
             </p>
           </div>
-          <ValidationProgressBadge passes={validationPasses} className="text-xs" />
+          <ValidationProgressBadge passes={validationPasses} showLabel detailed className="text-xs" />
         </div>
       )}
       {showEmpty ? (

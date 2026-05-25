@@ -36,6 +36,8 @@ type Props = {
   onCancel: () => void
   onBack?: () => void
   onDelete?: () => void
+  /** Shown when editing an Active persona — save will revert to Draft */
+  editRevertWarning?: boolean
 }
 
 const TITLE_MAP = {
@@ -62,6 +64,7 @@ export function PersonaForm({
   onCancel,
   onBack,
   onDelete,
+  editRevertWarning,
 }: Props) {
   const sections = useAtomValue(sectionsAtom)
   const form = useForm<PersonaFormData>({
@@ -80,7 +83,6 @@ export function PersonaForm({
   const [fixturePanelOpen, setFixturePanelOpen] = useState(false)
   const fixtureId = form.watch('fixtureId')
   const assignedFixture = getFixtureById(fixtureId)
-
   const addCriterion = useCallback(
     (prompt: string) => {
       appendCriterion({ id: ulid(), prompt })
@@ -139,6 +141,16 @@ export function PersonaForm({
             </Button>
           </div>
         </header>
+
+        {editRevertWarning && (
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-950">
+            <p className="font-medium">Active persona</p>
+            <p className="mt-1 text-xs opacity-90">
+              Pressing <strong>Update persona</strong> will move this persona back to Draft and
+              reset validation to 0/3 consecutive passes.
+            </p>
+          </div>
+        )}
 
         {isReview && reviewMeta && (
           <div
@@ -236,7 +248,10 @@ export function PersonaForm({
                   render={({ field }) => (
                     <FormItem className="gap-3">
                       <FormLabel>Instructions</FormLabel>
-                      <div className="grid grid-cols-[1fr_auto] gap-4 items-start" style={{ gridTemplateColumns: '3fr 2fr' }}>
+                      <div
+                        className="grid grid-cols-[1fr_auto] gap-4 items-start"
+                        style={{ gridTemplateColumns: isReview ? '1fr' : '3fr 2fr' }}
+                      >
                         <FormControl>
                           <Textarea
                             placeholder={`"You are looking for shampoos. Start the conversation by asking if they are available..."`}
@@ -245,14 +260,16 @@ export function PersonaForm({
                             disabled={form.formState.isSubmitting}
                           />
                         </FormControl>
-                        <div className="pt-1">
-                          <p className="text-sm font-medium text-muted-foreground mb-1">Example:</p>
-                          <p className="text-sm text-muted-foreground italic leading-relaxed">
-                            &ldquo;You are looking for shampoos. Start the conversation by asking if
-                            they are available. Once the assistant shows you the results, immediately
-                            ask it to compare the first two options it presented.&rdquo;
-                          </p>
-                        </div>
+                        {!isReview && (
+                          <div className="pt-1">
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Example:</p>
+                            <p className="text-sm text-muted-foreground italic leading-relaxed">
+                              &ldquo;You are looking for shampoos. Start the conversation by asking if
+                              they are available. Once the assistant shows you the results, immediately
+                              ask it to compare the first two options it presented.&rdquo;
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <FormMessage />
                     </FormItem>

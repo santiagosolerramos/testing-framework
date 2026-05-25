@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider as JotaiProvider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { FlaskConicalIcon, BookOpenIcon, HammerIcon, ListIcon } from 'lucide-react'
@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils'
 import { ulid } from 'ulid'
 import { personaCreationAtom } from '@/atoms/personaCreation'
 import { PersonaCreationFlow } from '@/scenes/Personas/creation/PersonaCreationFlow'
+import { EditActivePersonaDialog } from '@/scenes/Personas/EditActivePersonaDialog'
+import { applyPersonaFormSave, isPersonaActive } from '@/scenes/Personas/personaStatus'
 
 const queryClient = new QueryClient()
 
@@ -93,6 +95,27 @@ function PersonaFormOverlay() {
   const [formMode, setFormMode] = useAtom(personaFormModeAtom)
   const [personas, setPersonas] = useAtom(personasAtom)
   const setSelectedId = useSetAtom(selectedPersonaIdAtom)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingData, setPendingData] = useState<PersonaFormData | null>(null)
+
+  const existing = personas.find((p) => p.id === formMode)
+  const wasActiveOnOpen = useMemo(() => {
+    if (!existing || formMode === 'create' || !formMode) return false
+    return isPersonaActive(existing)
+  }, [formMode, existing])
+
+  const commitUpdate = useCallback(
+    (data: PersonaFormData) => {
+      if (!formMode || formMode === 'create') return
+      setPersonas((prev) =>
+        prev.map((p) => (p.id === formMode ? applyPersonaFormSave(p, data) : p))
+      )
+      setFormMode(null)
+      setPendingData(null)
+      setConfirmOpen(false)
+    },
+    [formMode, setPersonas, setFormMode]
+  )
 
   const handleFormSubmit = useCallback(
     async (data: PersonaFormData) => {
@@ -107,18 +130,17 @@ function PersonaFormOverlay() {
         }
         setPersonas((prev) => [...prev, newPersona])
         setSelectedId(newPersona.id)
+        setFormMode(null)
       } else if (formMode && formMode !== 'create') {
-        setPersonas((prev) =>
-          prev.map((p) =>
-            p.id === formMode
-              ? { ...p, ...data, sectionId: data.sectionId ?? undefined }
-              : p
-          )
-        )
+        if (wasActiveOnOpen) {
+          setPendingData(data)
+          setConfirmOpen(true)
+          return
+        }
+        commitUpdate(data)
       }
-      setFormMode(null)
     },
-    [formMode, setPersonas, setSelectedId, setFormMode]
+    [formMode, setPersonas, setSelectedId, setFormMode, commitUpdate]
   )
 
   const handleDelete = useCallback(() => {
@@ -128,7 +150,7 @@ function PersonaFormOverlay() {
     setSelectedId(null)
   }, [formMode, setPersonas, setFormMode, setSelectedId])
 
-  const existing = personas.find((p) => p.id === formMode)
+  const editRevertWarning = existing ? isPersonaActive(existing) : false
   const initialData: PersonaFormData | undefined = existing
     ? {
         personaKey: existing.personaKey,
@@ -140,13 +162,27 @@ function PersonaFormOverlay() {
     : undefined
 
   return (
-    <PersonaForm
-      mode={formMode === 'create' ? 'create' : 'update'}
-      initialData={initialData}
-      onSubmit={handleFormSubmit}
-      onCancel={() => setFormMode(null)}
-      onDelete={formMode !== 'create' ? handleDelete : undefined}
-    />
+    <>
+      <PersonaForm
+        mode={formMode === 'create' ? 'create' : 'update'}
+        initialData={initialData}
+        editRevertWarning={formMode !== 'create' && editRevertWarning}
+        onSubmit={handleFormSubmit}
+        onCancel={() => setFormMode(null)}
+        onDelete={formMode !== 'create' ? handleDelete : undefined}
+      />
+      <EditActivePersonaDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmOpen(false)
+            setPendingData(null)
+          }
+        }}
+        personaKey={existing?.personaKey ?? ''}
+        onConfirm={() => pendingData && commitUpdate(pendingData)}
+      />
+    </>
   )
 }
 

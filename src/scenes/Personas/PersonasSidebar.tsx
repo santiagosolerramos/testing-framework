@@ -41,7 +41,6 @@ export function PersonasSidebar() {
   const sections = useAtomValue(sectionsAtom)
   const [selectedId, setSelectedId] = useAtom(selectedPersonaIdAtom)
   const testRuns = useAtomValue(testRunsAtom)
-  const setFormMode = useSetAtom(personaFormModeAtom)
   const setCreation = useSetAtom(personaCreationAtom)
   const setTestRuns = useSetAtom(testRunsAtom)
   const [search, setSearch] = useState('')
@@ -49,6 +48,7 @@ export function PersonasSidebar() {
   const [runningDraft, setRunningDraft] = useState(false)
   const [promoteTarget, setPromoteTarget] = useState<Persona | null>(null)
   const [promoteAllOpen, setPromoteAllOpen] = useState(false)
+  const setFormMode = useSetAtom(personaFormModeAtom)
 
   const draftPersonas = useMemo(() => personas.filter(isPersonaDraft), [personas])
   const activeRunnableCount = personas.filter(isPersonaActive).length
@@ -126,7 +126,11 @@ export function PersonasSidebar() {
         showStatusBadge={!opts?.hideStatusBadge}
         trailing={
           isDraft ? (
-            <ValidationProgressBadge passes={getValidationPasses(persona)} />
+            <ValidationProgressBadge
+              passes={getValidationPasses(persona)}
+              showLabel
+              detailed
+            />
           ) : undefined
         }
         isSelected={selectedId === persona.id}

@@ -61,6 +61,10 @@ export interface PersonaWizardDraft {
   detectedEntities: string[]
   maxTurns: number
   criteria: EvaluationCriterion[]
+  /** SOP-aware catalog eval ids (description wizard) */
+  selectedCatalogEvalIds: string[]
+  evalCatchAll: string
+  /** Legacy flat toggles (conversation / sandbox) */
   evalToggles: EvalToggles
   fixtureMatch: FixtureMatchState
   selectedFixtureId: string | null
