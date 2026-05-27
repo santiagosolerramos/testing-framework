@@ -35,7 +35,7 @@ export function FixturePanelModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[90vh] w-full !max-w-[720px] flex-col gap-4 p-6">
+        <DialogContent className="flex max-h-[90vh] w-full max-w-[720px]! flex-col gap-4 p-6">
           <DialogHeader>
             <DialogTitle>Fixture</DialogTitle>
             <DialogDescription>
