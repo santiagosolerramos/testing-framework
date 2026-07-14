@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { personasAtom, selectedPersonaIdAtom, testRunsAtom } from '@/atoms'
 import { cn } from '@/lib/utils'
 import { PersonaLifecycleStatus } from './PersonaLifecycleStatus'
+import { isNPlusOnePersona } from './nPlusOne'
 
 function parseNumberedObjectives(instructions: string): string[] {
   const lines = instructions.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -30,6 +31,8 @@ export function ResultsPanel() {
   }
 
   const passedCount = run?.evaluationResults?.filter((r) => r.passed).length ?? 0
+  const isNPlusOne = isNPlusOnePersona(persona)
+  const nPlusOne = persona.nPlusOne
   const objectives = persona.objectives[0]
   const criteriaCount = persona.evaluation.criteria.length
   const objectiveLines = objectives?.instructions
@@ -75,7 +78,36 @@ export function ResultsPanel() {
 
           {infoOpen && (
             <div className="flex flex-col gap-5 px-6 pb-5">
-              {objectives && (
+              {isNPlusOne && nPlusOne && (
+                <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-800">
+                    N+1 test · prod replay
+                  </p>
+                  <dl className="space-y-2 text-sm text-gray-700">
+                    <div>
+                      <dt className="text-xs text-gray-500">Source conversation</dt>
+                      <dd className="font-mono text-xs">{nPlusOne.prodConversationId}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-gray-500">Agent</dt>
+                      <dd>{nPlusOne.agentName}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-gray-500">Failure turn</dt>
+                      <dd>Turn {nPlusOne.failureTurnNumber} — {nPlusOne.failureEvalName}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-gray-500">Input N</dt>
+                      <dd>
+                        {nPlusOne.inputNMessages.length} messages · input through turn{' '}
+                        {nPlusOne.failureTurnNumber} user (frozen prod context)
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
+
+              {!isNPlusOne && objectives && (
                 <div>
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Objectives
@@ -93,6 +125,20 @@ export function ResultsPanel() {
                       </p>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {isNPlusOne && nPlusOne && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Inherited evaluation
+                  </p>
+                  <p className="border-l-4 border-purple-400 pl-4 text-sm leading-relaxed text-gray-700">
+                    {nPlusOne.inheritedEvalPrompt}
+                  </p>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Same criterion as failed production eval — no recalibration.
+                  </p>
                 </div>
               )}
 

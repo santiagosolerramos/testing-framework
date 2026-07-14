@@ -28,6 +28,8 @@ export interface EvaluationResult {
 export interface TestSuiteRun {
   status: TestRunStatus
   evaluationResults?: EvaluationResult[]
+  /** N+1: assistant text from the last test run (kept for review after eval) */
+  lastAssistantResponse?: string
 }
 
 export type TestRunsState = Record<string, TestSuiteRun>
@@ -52,9 +54,27 @@ export interface PersonaEvaluation {
 
 export type PersonaStatus = 'active' | 'draft'
 
+/** Full-simulation (default) vs N+1 replay from a prod failure */
+export type PersonaTestKind = 'simulation' | 'n-plus-one'
+
+export interface NPlusOneMetadata {
+  prodConversationId: string
+  agentName: string
+  /** 1-based turn number (user+bot pair) where prod eval failed */
+  failureTurnNumber: number
+  failureEvalName: string
+  failureReason: string
+  /** Conversation slice used as direct LLM input (through turn N−1) */
+  inputNMessages: Message[]
+  inheritedEvalPrompt: string
+  piiRedacted: boolean
+}
+
 export interface Persona {
   id: string
   personaKey: string
+  testKind?: PersonaTestKind
+  nPlusOne?: NPlusOneMetadata
   objectives: PersonaObjective[]
   evaluation: PersonaEvaluation
   /** Single fixture slot — source of truth for simulated tool results */

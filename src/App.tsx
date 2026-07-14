@@ -1,7 +1,18 @@
 import { useCallback, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider as JotaiProvider, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { FlaskConicalIcon, BookOpenIcon, HammerIcon, ListIcon } from 'lucide-react'
+import {
+  FlaskConicalIcon,
+  BookOpenIcon,
+  HammerIcon,
+  ListIcon,
+  ShieldIcon,
+} from 'lucide-react'
+import { ConnectlyNav, ConnectlyLogoIcon } from '@/components/ConnectlyNav'
+import { AdminPanel } from '@/scenes/Admin'
+import { AnalyticsPage } from '@/scenes/Analytics/AnalyticsPage'
+import { loadingBusinessAtom } from '@/atoms/admin'
+import { appSectionAtom } from '@/atoms/admin'
 import { SandboxSidebar, SandboxContent } from '@/scenes/Sandbox'
 import { PersonasSidebar } from '@/scenes/Personas/PersonasSidebar'
 import { PersonaRunView } from '@/scenes/Personas/PersonaRunView'
@@ -28,11 +39,23 @@ const PERSONAS_GRID =
   'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,1fr)]'
 
 function LeftNav() {
+  const [section, setSection] = useAtom(appSectionAtom)
+
   return (
     <div className="flex w-12 shrink-0 flex-col items-center gap-4 border-r border-gray-200 bg-white py-3">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900">
-        <FlaskConicalIcon className="h-4 w-4 text-white" />
-      </div>
+      <button
+        type="button"
+        title="Test framework"
+        onClick={() => setSection('agents')}
+        className={cn(
+          'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+          section === 'agents' ? 'bg-gray-900' : 'bg-gray-100 hover:bg-gray-200'
+        )}
+      >
+        <FlaskConicalIcon
+          className={cn('h-4 w-4', section === 'agents' ? 'text-white' : 'text-gray-600')}
+        />
+      </button>
       <div className="mt-2 flex flex-col items-center gap-3">
         {[
           { icon: ListIcon, label: 'Executions' },
@@ -48,6 +71,19 @@ function LeftNav() {
             <Icon className="h-4 w-4" />
           </button>
         ))}
+        <button
+          type="button"
+          title="Admin Panel"
+          onClick={() => setSection('admin')}
+          className={cn(
+            'flex h-8 w-8 items-center justify-center rounded transition-colors',
+            section === 'admin'
+              ? 'bg-purple-100 text-purple-800'
+              : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+          )}
+        >
+          <ShieldIcon className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )
@@ -187,9 +223,34 @@ function PersonaFormOverlay() {
 }
 
 function AppShell() {
+  const loadingBusiness = useAtomValue(loadingBusinessAtom)
+  const appSection = useAtomValue(appSectionAtom)
   const tab = useAtomValue(sidebarTabAtom)
   const formMode = useAtomValue(personaFormModeAtom)
   const creation = useAtomValue(personaCreationAtom)
+
+  if (loadingBusiness) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white">
+        <ConnectlyLogoIcon className="h-10 w-10" />
+      </div>
+    )
+  }
+
+  if (appSection === 'admin') {
+    return <AdminPanel />
+  }
+
+  if (appSection === 'analytics') {
+    return (
+      <div className="flex h-screen overflow-hidden bg-white">
+        <ConnectlyNav />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <AnalyticsPage />
+        </main>
+      </div>
+    )
+  }
 
   const isWizardFullscreen =
     creation?.kind === 'description' || creation?.kind === 'conversation'
@@ -197,6 +258,7 @@ function AppShell() {
   if (isWizardFullscreen) {
     return (
       <div className="flex h-screen overflow-hidden bg-white">
+        <ConnectlyNav />
         <LeftNav />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <PersonaCreationFlow />
@@ -208,6 +270,7 @@ function AppShell() {
   if (formMode !== null) {
     return (
       <div className="flex h-screen overflow-hidden bg-white">
+        <ConnectlyNav />
         <LeftNav />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <PersonaFormOverlay />
@@ -219,6 +282,7 @@ function AppShell() {
   if (tab === 'chat') {
     return (
       <div className="flex h-screen overflow-hidden bg-white">
+        <ConnectlyNav />
         <LeftNav />
         <SidebarPanel className="w-64 shrink-0" />
         <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -230,6 +294,7 @@ function AppShell() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-white">
+      <ConnectlyNav />
       <LeftNav />
       <div className={cn(PERSONAS_GRID, 'min-w-0')}>
         <SidebarPanel />

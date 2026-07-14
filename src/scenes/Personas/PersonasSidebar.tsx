@@ -15,6 +15,7 @@ import { personaCreationAtom } from '@/atoms/personaCreation'
 import { cn } from '@/lib/utils'
 import type { Persona } from '@/types'
 import { PersonaSidebarItem } from './PersonaSidebarItem'
+import { isNPlusOnePersona } from './nPlusOne'
 import { PromotePersonaDialog } from './PromotePersonaDialog'
 import { PromoteAllReadyDialog } from './PromoteAllReadyDialog'
 import { PersonaStatusZone } from './PersonaStatusZone'
@@ -125,17 +126,24 @@ export function PersonasSidebar() {
         runStatus={runStatus}
         showStatusBadge={!opts?.hideStatusBadge}
         trailing={
-          isDraft ? (
-            <ValidationProgressBadge
-              passes={getValidationPasses(persona)}
-              showLabel
-              detailed
-            />
-          ) : undefined
+          <>
+            {isNPlusOnePersona(persona) && (
+              <span className="shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-800">
+                N+1
+              </span>
+            )}
+            {isDraft ? (
+              <ValidationProgressBadge
+                passes={getValidationPasses(persona)}
+                showLabel
+                detailed
+              />
+            ) : undefined}
+          </>
         }
         isSelected={selectedId === persona.id}
         onSelect={() => setSelectedId(persona.id)}
-        onEdit={() => setFormMode(persona.id)}
+        onEdit={isNPlusOnePersona(persona) ? undefined : () => setFormMode(persona.id)}
         onDuplicateToDraft={isActive ? () => duplicateToDraft(persona) : undefined}
         onPromoteToActive={canPromote ? () => setPromoteTarget(persona) : undefined}
       />
