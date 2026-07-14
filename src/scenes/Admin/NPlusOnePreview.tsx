@@ -8,6 +8,8 @@ type Props = {
   conversation: ProdConversation
   evalName?: string
   inheritedPrompt?: string
+  /** Selected failed eval's turn — drives the input N slice */
+  failureTurnNumber?: number
   onConfirm: () => void
   onBack: () => void
 }
@@ -16,22 +18,30 @@ export function NPlusOnePreview({
   conversation,
   evalName,
   inheritedPrompt,
+  failureTurnNumber,
   onConfirm,
   onBack,
 }: Props) {
-  const inputN = getRedactedInputNSlice(conversation)
+  const failTurn = failureTurnNumber ?? conversation.failureTurnNumber
+  const inputN = getRedactedInputNSlice(conversation, failTurn)
   const inputTurnCount = countConversationTurns(
     inputN.map((m, i) => ({ ...m, timestamp: i }))
   )
-  const failTurn = conversation.failureTurnNumber
   const hasPii = (conversation.piiRedactions?.length ?? 0) > 0
 
   return (
     <div className="rounded-lg border border-purple-200 bg-purple-50/30 p-5">
       <h3 className="text-sm font-semibold text-gray-900">Preview input N</h3>
       <p className="mt-1 text-xs text-gray-600">
-        Complete user+bot turns before the failure turn, plus the user message on the failure turn
-        only. Each turn is one user message and the bot reply — this slice is direct LLM context.
+        Slice is built from the <strong>selected</strong> failed eval
+        {evalName ? (
+          <>
+            {' '}
+            (<code className="text-[11px]">{evalName}</code>
+            {failTurn !== undefined ? <> · turn {failTurn}</> : null})
+          </>
+        ) : null}
+        . Complete user+bot turns before that turn, plus the user message on the failure turn only.
       </p>
 
       {hasPii && (
@@ -88,7 +98,7 @@ export function NPlusOnePreview({
 
       <div className="mt-4 rounded-md border border-gray-200 bg-white px-3 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-          Inherited evaluation (from prod)
+          Inherited evaluation (from selected prod fail)
           {evalName && (
             <span className="ml-2 font-mono normal-case text-purple-700">{evalName}</span>
           )}
@@ -108,6 +118,7 @@ export function NPlusOnePreview({
           onClick={onConfirm}
         >
           Confirm and create test
+          {evalName ? ` · ${evalName}` : ''}
         </Button>
         <Button type="button" variant="outline" onClick={onBack}>
           Back to conversation

@@ -49,11 +49,14 @@ export function AdminSessionDetail({
   const selectedEval = selectedEvalId
     ? getEvaluationById(conversation, selectedEvalId)
     : undefined
+  const activeFailureTurn =
+    selectedEval?.turnNumber ?? conversation.failureTurnNumber
   const canCreate =
     conversation.hasTurnLevelEval &&
     conversation.evalStatus === 'failed' &&
     selectedEval?.status === 'failed' &&
-    selectedEval.prompt != null
+    selectedEval.prompt != null &&
+    selectedEval.turnNumber != null
 
   if (step === 'created') {
     return (
@@ -158,6 +161,7 @@ export function AdminSessionDetail({
             conversation={conversation}
             evalName={selectedEval?.name}
             inheritedPrompt={selectedEval?.prompt}
+            failureTurnNumber={activeFailureTurn}
             onConfirm={onConfirmCreate}
             onBack={() => onStepChange('conversation')}
           />
@@ -183,6 +187,10 @@ export function AdminSessionDetail({
             <div className="min-h-0 flex-1 overflow-auto bg-[#e5ddd5]/30 px-4 py-5">
               <ProdConversationTurns
                 conversation={conversation}
+                failureTurnNumber={activeFailureTurn}
+                failureEvalName={
+                  selectedEval?.status === 'failed' ? selectedEval.name : undefined
+                }
                 showInferences={showInferences}
               />
             </div>
@@ -196,6 +204,10 @@ export function AdminSessionDetail({
                   {selectedEval.reason && (
                     <p className="mt-1 text-red-800/90">{selectedEval.reason}</p>
                   )}
+                  <p className="mt-2 text-[11px] text-red-800/70">
+                    Creating an offline test from this eval cuts input N at turn{' '}
+                    {selectedEval.turnNumber} and inherits this prompt.
+                  </p>
                 </div>
               )}
               {!conversation.hasTurnLevelEval && (
@@ -206,18 +218,28 @@ export function AdminSessionDetail({
               )}
               {!selectedEvalId && conversation.hasTurnLevelEval && (
                 <p className="mb-2 text-xs text-gray-500">
-                  Select a failed eval on the right to enable test creation.
+                  Select a failed eval on the right — turn highlight and input N follow that eval.
                 </p>
               )}
               <Button
                 type="button"
                 size="sm"
-                className={cn('w-full sm:w-auto', canCreate && 'bg-gray-900 hover:bg-gray-800')}
+                className={cn(
+                  'w-full max-w-full sm:w-auto',
+                  canCreate && 'bg-gray-900 hover:bg-gray-800'
+                )}
                 disabled={!canCreate}
                 onClick={() => onStepChange('preview')}
               >
-                Create offline test
+                {canCreate && selectedEval
+                  ? `Create offline test · ${selectedEval.name}`
+                  : 'Create offline test'}
               </Button>
+              {canCreate && selectedEval?.turnNumber !== undefined && (
+                <p className="mt-1.5 text-[11px] text-gray-500">
+                  Will cut input N at turn {selectedEval.turnNumber} (user message only on that turn)
+                </p>
+              )}
             </div>
           </div>
 
@@ -225,6 +247,10 @@ export function AdminSessionDetail({
             conversation={conversation}
             selectedEvalId={selectedEvalId}
             onSelectEval={onSelectEval}
+            onCreateFromEval={(evalId) => {
+              onSelectEval(evalId)
+              onStepChange('preview')
+            }}
           />
         </div>
       )}

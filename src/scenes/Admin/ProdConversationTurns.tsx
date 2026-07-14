@@ -58,11 +58,13 @@ function TurnBlock({
   dimmed,
   isFailureTurn,
   isPartialInputN,
+  failureEvalName,
 }: {
   pair: ConversationTurnPair
   dimmed?: boolean
   isFailureTurn?: boolean
   isPartialInputN?: boolean
+  failureEvalName?: string
 }) {
   const assistants = getAssistantsForTurn(pair)
 
@@ -77,7 +79,10 @@ function TurnBlock({
       <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
         Turn {pair.turnNumber}
         {isFailureTurn && (
-          <span className="ml-2 text-red-600">· failure on bot response</span>
+          <span className="ml-2 text-red-600">
+            · failure on bot response
+            {failureEvalName ? ` · ${failureEvalName}` : ''}
+          </span>
         )}
         {isPartialInputN && (
           <span className="ml-2 text-purple-700">· user only in input N</span>
@@ -100,16 +105,21 @@ function TurnBlock({
 
 type Props = {
   conversation: ProdConversation
+  /** Overrides conversation.failureTurnNumber — use the selected eval's turn */
+  failureTurnNumber?: number
   highlightFailure?: boolean
   showInferences?: boolean
+  failureEvalName?: string
 }
 
 export function ProdConversationTurns({
   conversation,
+  failureTurnNumber,
   highlightFailure = true,
   showInferences = false,
+  failureEvalName,
 }: Props) {
-  const failTurn = conversation.failureTurnNumber
+  const failTurn = failureTurnNumber ?? conversation.failureTurnNumber
   const pairs = messagesToTurnPairs(conversation.turns)
 
   return (
@@ -138,6 +148,7 @@ export function ProdConversationTurns({
               dimmed={isAfterFailure}
               isFailureTurn={isFailureTurn}
               isPartialInputN={isPartialInputN}
+              failureEvalName={failureEvalName}
             />
           </div>
         )

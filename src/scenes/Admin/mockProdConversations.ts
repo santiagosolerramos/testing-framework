@@ -140,8 +140,9 @@ const PURAVIDA_EVALS: ProdEvaluation[] = [
     id: 'eval-fmt',
     name: 'adhoc.formatting_errors',
     status: 'failed',
-    turnNumber: 3,
-    reason: 'Response contained malformed markdown in the product link block.',
+    turnNumber: 2,
+    reason:
+      'Turn 2 bot reply used broken markdown when acknowledging the delivery-delay concern.',
     prompt: 'Output 1 if the assistant response has no formatting errors, otherwise 0.',
   },
   {
@@ -361,19 +362,25 @@ export const MOCK_PROD_CONVERSATIONS: ProdConversation[] = [
   },
 ]
 
-export function getInputNSlice(conversation: ProdConversation): Message[] {
-  const failTurn = conversation.failureTurnNumber
+export function getInputNSlice(
+  conversation: ProdConversation,
+  failureTurnNumber?: number
+): Message[] {
+  const failTurn = failureTurnNumber ?? conversation.failureTurnNumber
   if (failTurn === undefined) return []
   return buildInputNMessages(conversation.turns, failTurn)
 }
 
 /** Redacted messages for the N slice (checkout demo uses synthetic tokens). */
-export function getRedactedInputNSlice(conversation: ProdConversation): Message[] {
+export function getRedactedInputNSlice(
+  conversation: ProdConversation,
+  failureTurnNumber?: number
+): Message[] {
+  const failTurn = failureTurnNumber ?? conversation.failureTurnNumber ?? 1
   if (conversation.id === 'prod-conv-001') {
-    const failTurn = conversation.failureTurnNumber ?? 1
     return buildInputNMessages(REDACTED_CHECKOUT_TURNS, failTurn)
   }
-  return getInputNSlice(conversation)
+  return buildInputNMessages(conversation.turns, failTurn)
 }
 
 export { countConversationTurns, messagesToTurnPairs }
