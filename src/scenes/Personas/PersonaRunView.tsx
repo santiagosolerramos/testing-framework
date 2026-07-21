@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { CopyIcon, SettingsIcon } from 'lucide-react'
+import { nPlusOneJourneyOpenAtom, nPlusOneJourneyStepAtom } from '@/atoms/admin'
+import { ADMIN_JOURNEY_LAST_STEP } from '@/scenes/Admin/nPlusOneJourneySteps'
+import { NPlusOneJourneyModal } from '@/scenes/Admin/NPlusOneJourneyModal'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ChatTestColumnLayout } from '@/components/layout/ChatTestColumnLayout'
@@ -58,12 +61,16 @@ export function PersonaRunView() {
   const [running, setRunning] = useState(false)
   const [promoteOpen, setPromoteOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [journeyStep, setJourneyStep] = useAtom(nPlusOneJourneyStepAtom)
+  const [journeyOpen, setJourneyOpen] = useAtom(nPlusOneJourneyOpenAtom)
 
   const persona = personas.find((p) => p.id === selectedId)
   const run = selectedId ? testRuns[selectedId] : undefined
   const hasPassedRun = run?.status === 'TEST_RUN_STATUS_PASSED'
   const isNPlusOne = persona ? isNPlusOnePersona(persona) : false
   const inputNMessages = persona?.nPlusOne?.inputNMessages ?? []
+  const showFrameworkJourney =
+    journeyOpen && isNPlusOne && journeyStep > ADMIN_JOURNEY_LAST_STEP
 
   // Reset N+1 generated output only when switching personas; hydrate last run from testRuns.
   useEffect(() => {
@@ -346,6 +353,17 @@ export function PersonaRunView() {
         onOpenChange={setPromoteOpen}
         personaKey={persona.personaKey}
         onConfirm={() => setPersonas((prev) => setPersonaStatus(prev, persona.id, 'active'))}
+      />
+      <NPlusOneJourneyModal
+        open={showFrameworkJourney}
+        stepIndex={journeyStep}
+        onStepChange={(next) => {
+          setJourneyStep(next)
+          if (next > ADMIN_JOURNEY_LAST_STEP + 1) {
+            setJourneyOpen(false)
+          }
+        }}
+        onClose={() => setJourneyOpen(false)}
       />
     </>
   )
