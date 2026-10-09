@@ -77,19 +77,23 @@ export function PersonasSidebar() {
   const runAllActive = useCallback(async () => {
     setRunningActive(true)
     const runnable = personas.filter(isPersonaActive)
+    if (runnable.length > 0) setSelectedId(runnable[0].id)
     for (const persona of runnable) {
+      setSelectedId(persona.id)
       await runTestForPersona(persona, false)
     }
     setRunningActive(false)
-  }, [personas, runTestForPersona])
+  }, [personas, runTestForPersona, setSelectedId])
 
   const runAllDraft = useCallback(async () => {
     setRunningDraft(true)
+    if (draftPersonas.length > 0) setSelectedId(draftPersonas[0].id)
     for (const persona of draftPersonas) {
+      setSelectedId(persona.id)
       await runTestForPersona(persona, true)
     }
     setRunningDraft(false)
-  }, [draftPersonas, runTestForPersona])
+  }, [draftPersonas, runTestForPersona, setSelectedId])
 
   const promoteToActive = useCallback(
     (personaId: string) => {

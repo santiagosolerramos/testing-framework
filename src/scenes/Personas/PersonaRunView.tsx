@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { CopyIcon, SettingsIcon } from 'lucide-react'
+import { CheckCircle2Icon, CopyIcon, Loader2Icon, SettingsIcon, XCircleIcon } from 'lucide-react'
 import { nPlusOneJourneyOpenAtom, nPlusOneJourneyStepAtom } from '@/atoms/admin'
 import { ADMIN_JOURNEY_LAST_STEP } from '@/scenes/Admin/nPlusOneJourneySteps'
 import { NPlusOneJourneyModal } from '@/scenes/Admin/NPlusOneJourneyModal'
@@ -198,7 +198,10 @@ export function PersonaRunView() {
     )
   }
 
-  const showEmpty = !isNPlusOne && entries.length === 0 && !running
+  const isBatchRunning = !running && run?.status === 'TEST_RUN_STATUS_RUNNING'
+  const hasRunResult =
+    run?.status === 'TEST_RUN_STATUS_PASSED' || run?.status === 'TEST_RUN_STATUS_FAILED'
+  const showEmpty = !isNPlusOne && entries.length === 0 && !running && !isBatchRunning && !hasRunResult
   const personaStatus = getPersonaStatus(persona)
   const isDraft = personaStatus === 'draft'
   const validationPasses = getValidationPasses(persona)
@@ -316,6 +319,16 @@ export function PersonaRunView() {
             evalPassed={run?.evaluationResults?.[0]?.passed}
             messagesEndRef={messagesEndRef}
           />
+        ) : isBatchRunning ? (
+          <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
+            <Loader2Icon className="h-8 w-8 animate-spin text-purple-600" />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Running test…</p>
+              <p className="mt-1 max-w-sm text-xs text-gray-400">
+                Evaluating this persona as part of a batch run.
+              </p>
+            </div>
+          </div>
         ) : showEmpty ? (
           <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
@@ -341,6 +354,29 @@ export function PersonaRunView() {
               <p className="text-sm font-medium text-gray-700">No test results yet</p>
               <p className="mt-1 max-w-sm text-xs text-gray-400">
                 Test your persona to see a simulated conversation and get performance feedback.
+              </p>
+            </div>
+          </div>
+        ) : entries.length === 0 && hasRunResult ? (
+          <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
+            <div
+              className={cn(
+                'flex h-12 w-12 items-center justify-center rounded-xl',
+                run?.status === 'TEST_RUN_STATUS_PASSED' ? 'bg-green-100' : 'bg-red-100'
+              )}
+            >
+              {run?.status === 'TEST_RUN_STATUS_PASSED' ? (
+                <CheckCircle2Icon className="h-6 w-6 text-green-600" />
+              ) : (
+                <XCircleIcon className="h-6 w-6 text-red-500" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700">
+                {run?.status === 'TEST_RUN_STATUS_PASSED' ? 'Test passed' : 'Test failed'}
+              </p>
+              <p className="mt-1 max-w-sm text-xs text-gray-400">
+                Executed via batch run. See the Results panel for evaluation details.
               </p>
             </div>
           </div>
